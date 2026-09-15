@@ -1,3 +1,13 @@
+import { Routes, Route } from 'react-router-dom'
+import { Sidebar } from './components/Sidebar'
+import Home from './pages/Home'
+import Estoque from './pages/Estoque'
+import Patio from './pages/Patio'
+import Vendas from './pages/Vendas'
+import Clientes from './pages/Clientes'
+import Funil from './pages/Funil'
+import Financeiro from './pages/Financeiro'
+import Funcionarios from './pages/Funcionarios'
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from './api/client'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -76,10 +86,30 @@ function Tasks() {
   )
 }
 
+function Layout() {
+  return (
+    <div className="app-layout">
+      <Sidebar />
+      <main className="app-content">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/Estoque" element={<Estoque />} />
+          <Route path="/Patio" element={<Patio />} />
+          <Route path="/Vendas" element={<Vendas />} />
+          <Route path="/Clientes" element={<Clientes />} />
+          <Route path="/Funil" element={<Funil />} />
+          <Route path="/Financeiro" element={<Financeiro />} />
+          <Route path="/Funcionarios" element={<Funcionarios />} />
+        </Routes>
+      </main>
+    </div>
+  )
+}
+
 function Root() {
   const { user, loading } = useAuth()
   if (loading) return <p>Carregando…</p>
-  return user ? <Tasks /> : <Login />
+  return user ? <Layout /> : <Login />
 }
 
 export default function App() {
