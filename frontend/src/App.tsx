@@ -1,5 +1,6 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
+import { Topbar } from './components/Topbar'
 import Home from './pages/Home'
 import Estoque from './pages/Estoque'
 import Patio from './pages/Patio'
@@ -12,6 +13,18 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { api } from './api/client'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import type { Paginated, Task } from './types'
+import './App.css'
+
+const pageTitles: Record<string, string> = {
+  '/': 'Home',
+  '/estoque': 'Estoque',
+  '/patio': 'Pátio',
+  '/vendas': 'Vendas',
+  '/clientes': 'Clientes',
+  '/funil': 'Funil de Clientes',
+  '/financeiro': 'Financeiro',
+  '/funcionarios': 'Funcionários',
+}
 
 function Login() {
   const { login } = useAuth()
@@ -87,21 +100,27 @@ function Tasks() {
 }
 
 function Layout() {
+  const location = useLocation()
+  const title = pageTitles[location.pathname.toLowerCase()] ?? 'QuickDrive'
+
   return (
     <div className="app-layout">
       <Sidebar />
-      <main className="app-content">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/Estoque" element={<Estoque />} />
-          <Route path="/Patio" element={<Patio />} />
-          <Route path="/Vendas" element={<Vendas />} />
-          <Route path="/Clientes" element={<Clientes />} />
-          <Route path="/Funil" element={<Funil />} />
-          <Route path="/Financeiro" element={<Financeiro />} />
-          <Route path="/Funcionarios" element={<Funcionarios />} />
-        </Routes>
-      </main>
+      <div className="app-main">
+        <Topbar title={title} />
+        <main className="app-content">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/Estoque" element={<Estoque />} />
+            <Route path="/Patio" element={<Patio />} />
+            <Route path="/Vendas" element={<Vendas />} />
+            <Route path="/Clientes" element={<Clientes />} />
+            <Route path="/Funil" element={<Funil />} />
+            <Route path="/Financeiro" element={<Financeiro />} />
+            <Route path="/Funcionarios" element={<Funcionarios />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   )
 }
