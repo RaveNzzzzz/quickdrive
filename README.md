@@ -82,3 +82,73 @@ git push origin main
 3. Terminal 2: `npm run dev` (frontend).
 4. Trabalhar no código.
 5. No fim: `git add .` → `git commit -m "..."` → `git pull origin main` → `git push origin main`.
+
+
+
+
+
+---
+ 
+## O ciclo de trabalho do dia a dia
+ 
+Repita esses passos a cada tarefa nova.
+ 
+### 1. Atualize a `main` antes de começar
+ 
+```bash
+git checkout main
+git pull origin main
+```
+ 
+Pular esse passo é a causa mais comum de conflito. Sempre parta da `main` mais recente.
+ 
+### 2. Crie a branch da tarefa
+ 
+```bash
+git checkout -b feature/tela-de-login
+```
+ 
+### 3. Trabalhe e commite
+ 
+```bash
+git status                            # veja o que mudou
+git add .                             # ou: git add caminho/do/arquivo
+git commit -m "feat: adiciona tela de login"
+```
+ 
+Faça commits **pequenos e frequentes**. É mais fácil revisar e mais fácil desfazer.
+ 
+### 4. Mantenha sua branch atualizada (se a tarefa durar mais de um dia)
+ 
+```bash
+git checkout main
+git pull origin main
+git checkout feature/tela-de-login
+git merge main
+```
+ 
+Isso traz para a sua branch o que o time já mergeou. Resolver um conflito pequeno agora é muito melhor do que um conflito gigante no final.
+ 
+### 5. Envie a branch para o GitHub
+ 
+```bash
+git push -u origin feature/tela-de-login
+```
+ 
+O `-u` só é necessário no primeiro push da branch. Depois, basta `git push`.
+ 
+### 6. Abra o Pull Request
+ 
+Veja a seção [Abrindo o Pull Request](#abrindo-o-pull-request).
+ 
+### 7. Depois do merge, limpe
+ 
+```bash
+git checkout main
+git pull origin main
+git branch -d feature/tela-de-login       # apaga a branch local
+```
+ 
+A branch remota pode ser apagada pelo botão que o GitHub mostra na própria página do PR após o merge.
+ 
+---
