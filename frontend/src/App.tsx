@@ -9,10 +9,8 @@ import Clientes from './pages/Clientes'
 import Funil from './pages/Funil'
 import Financeiro from './pages/Financeiro'
 import Funcionarios from './pages/Funcionarios'
-import { useEffect, useState, type FormEvent } from 'react'
-import { api } from './api/client'
+import { useState, type FormEvent } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
-import type { Paginated, Task } from './types'
 import './App.css'
 
 const pageTitles: Record<string, string> = {
@@ -55,47 +53,6 @@ function Login() {
       <button type="submit">Entrar</button>
       {error && <p role="alert">{error}</p>}
     </form>
-  )
-}
-
-function Tasks() {
-  const { user, logout } = useAuth()
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [title, setTitle] = useState('')
-
-  useEffect(() => {
-    api<Paginated<Task>>('/tasks').then((data) => setTasks(data.items))
-  }, [])
-
-  async function addTask(e: FormEvent) {
-    e.preventDefault()
-    if (!title.trim()) return
-    const task = await api<Task>('/tasks', {
-      method: 'POST',
-      body: JSON.stringify({ title }),
-    })
-    setTasks((prev) => [task, ...prev])
-    setTitle('')
-  }
-
-  return (
-    <div>
-      <header>
-        <span>Olá, {user?.username}</span>
-        <button onClick={logout}>Sair</button>
-      </header>
-
-      <form onSubmit={addTask}>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nova tarefa" />
-        <button type="submit">Adicionar</button>
-      </form>
-
-      <ul>
-        {tasks.map((task) => (
-          <li key={task.id}>{task.title}</li>
-        ))}
-      </ul>
-    </div>
   )
 }
 
