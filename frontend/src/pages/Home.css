@@ -20,55 +20,6 @@
   gap: 24px;
 }
 
-/* KPI cards */
-
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.kpi-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.kpi-card h3 {
-  font-size: 14px;
-}
-
-.kpi-value {
-  display: block;
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-h);
-  margin-bottom: 24px;
-}
-
-.kpi-helper {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.trend-badge {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-
-.trend-up {
-  color: var(--success);
-  background: var(--success-bg);
-}
-
-.trend-down {
-  color: var(--danger);
-  background: var(--danger-bg);
-}
-
 /* Chart panel */
 
 .chart-panel {

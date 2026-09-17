@@ -1,0 +1,211 @@
+.patio-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Toolbar */
+
+.patio-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.patio-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.patio-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.patio-tab.active {
+  background: var(--surface);
+  color: var(--text-h);
+  box-shadow: var(--shadow);
+}
+
+.patio-tab-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.patio-tab.active .patio-tab-count {
+  color: var(--text-h);
+}
+
+.patio-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.patio-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text-muted);
+}
+
+.patio-search input {
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-h);
+  outline: none;
+  width: 180px;
+}
+
+.patio-search input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Vehicle grid */
+
+.patio-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.patio-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px 0;
+}
+
+.vehicle-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vehicle-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.vehicle-card h3 {
+  font-size: 17px;
+  margin-top: 6px;
+}
+
+.vehicle-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.vehicle-photo {
+  height: 140px;
+  border-radius: 12px;
+  margin: 14px 0;
+  background: linear-gradient(160deg, #cbd5e1, #8a94a3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.vehicle-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vehicle-info-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.vehicle-info-row strong {
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.vehicle-card-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+}
+
+.vehicle-price {
+  font-size: 17px;
+  color: var(--text-h);
+}
+
+.vehicle-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  background: var(--bg);
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.vehicle-link:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+/* Status pills */
+
+.patio-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.patio-status-disponivel {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.patio-status-reservado {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.patio-status-preparacao {
+  color: var(--warning);
+  background: var(--warning-bg);
+}

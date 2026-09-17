@@ -12,6 +12,70 @@
   padding: 20px;
 }
 
+/* KPI cards */
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.kpi-row-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.kpi-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.kpi-card h3 {
+  font-size: 14px;
+}
+
+.kpi-value {
+  display: block;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin-bottom: 24px;
+}
+
+.kpi-helper {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.kpi-helper-danger {
+  color: var(--danger);
+}
+
+.trend-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.trend-up {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.trend-down {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.trend-neutral {
+  color: var(--text-muted);
+  background: var(--bg);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -41,6 +105,12 @@
 
 .btn-outline:hover {
   background: var(--bg);
+}
+
+.btn-outline.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .icon-btn {
