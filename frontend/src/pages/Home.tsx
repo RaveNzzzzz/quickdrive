@@ -116,7 +116,7 @@ export default function Home() {
 
         <div className="card transactions-card">
           <h3 className="transactions-title">Últimas transações registradas</h3>
-          <table className="transactions-table">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>Cliente</th>

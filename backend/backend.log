@@ -1,1 +1,15 @@
 Watching for file changes with StatReloader
+[17/Sep/2026 10:26:14] "GET /admin/ HTTP/1.1" 302 0
+[17/Sep/2026 10:26:36] "OPTIONS /api/token/pair HTTP/1.1" 200 0
+"POST - NinjaJWTDefaultController[obtain_token] /api/token/pair" 2.5219979286193848
+[17/Sep/2026 10:26:38] "POST /api/token/pair HTTP/1.1" 200 507
+[17/Sep/2026 10:26:38] "OPTIONS /api/accounts/me HTTP/1.1" 200 0
+[17/Sep/2026 10:26:38] "GET /api/accounts/me HTTP/1.1" 200 95
+[17/Sep/2026 10:26:40,287] - Broken pipe from ('127.0.0.1', 62370)
+[17/Sep/2026 10:26:49] "OPTIONS /api/token/pair HTTP/1.1" 200 0
+"POST - NinjaJWTDefaultController[obtain_token] /api/token/pair" 1.292388677597046
+[17/Sep/2026 10:26:50] "POST /api/token/pair HTTP/1.1" 200 507
+[17/Sep/2026 10:26:50] "OPTIONS /api/accounts/me HTTP/1.1" 200 0
+[17/Sep/2026 10:26:50] "GET /api/accounts/me HTTP/1.1" 200 95
+[17/Sep/2026 10:26:52] "GET /api/accounts/me HTTP/1.1" 200 95
+[17/Sep/2026 10:26:52] "GET /api/accounts/me HTTP/1.1" 200 95
