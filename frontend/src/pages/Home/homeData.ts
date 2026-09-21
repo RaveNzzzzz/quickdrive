@@ -10,6 +10,8 @@ export const kpis: Kpi[] = [
   { label: 'Vendas', value: 430540, trend: 15.76, helper: 'vs. Julho/2026' },
 ]
 
+export const metaMensal = 450000
+
 export const caixa = {
   label: 'Caixa',
   value: 1230126,
