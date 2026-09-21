@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ArrowDownWideNarrow, Car, ChevronRight, Plus, Search } from 'lucide-react'
-import { Pagination } from '../components/Pagination'
+import { Pagination } from '../../components/Pagination'
 import {
   lotCapacity,
   patioVehicles,

@@ -1,52 +1,20 @@
 import { NavLink } from 'react-router-dom'
-import {
-  Home,
-  Package,
-  Car,
-  ShoppingCart,
-  Users,
-  Filter,
-  Wallet,
-  UserCog,
-} from 'lucide-react'
+import { kpis, metaMensal } from '../pages/Home/homeData'
+import { navGroups } from './navigation'
+import './Sidebar.css'
 
-type NavItem = {
-  label: string
-  path: string
-  icon: React.ComponentType<{ size?: number }>
-}
+const currency = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  maximumFractionDigits: 0,
+})
 
-const navGroups: { title: string; items: NavItem[] }[] = [
-  {
-    title: 'Visão Geral',
-    items: [{ label: 'Home', path: '/', icon: Home }],
-  },
-  {
-    title: 'Veículos',
-    items: [
-      { label: 'Estoque', path: '/estoque', icon: Package },
-      { label: 'Pátio', path: '/patio', icon: Car },
-    ],
-  },
-  {
-    title: 'Comercial',
-    items: [
-      { label: 'Vendas', path: '/vendas', icon: ShoppingCart },
-      { label: 'Clientes', path: '/clientes', icon: Users },
-      { label: 'Funil de Clientes', path: '/funil', icon: Filter },
-    ],
-  },
-  {
-    title: 'Finanças',
-    items: [{ label: 'Financeiro', path: '/financeiro', icon: Wallet }],
-  },
-  {
-    title: 'Equipe',
-    items: [{ label: 'Funcionários', path: '/funcionarios', icon: UserCog }],
-  },
-]
+const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date())
 
 export function Sidebar() {
+  const vendido = kpis.find((k) => k.label === 'Vendas')?.value ?? 0
+  const progress = Math.min(100, Math.round((vendido / metaMensal) * 100))
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -77,6 +45,17 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+
+      <div className="sidebar-goal">
+        <span>Meta de {monthName}</span>
+        <strong>{progress}%</strong>
+        <div className="sidebar-goal-bar">
+          <div style={{ width: `${progress}%` }} />
+        </div>
+        <p>
+          {currency.format(vendido)} de {currency.format(metaMensal)}
+        </p>
+      </div>
     </aside>
   )
 }

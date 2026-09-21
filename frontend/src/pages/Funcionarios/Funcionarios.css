@@ -204,3 +204,47 @@
   background: var(--danger-bg);
   color: var(--danger);
 }
+/* Search, filters and empty state */
+
+.func-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text-muted);
+}
+
+.func-search input {
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-h);
+  outline: none;
+  width: 190px;
+}
+
+.func-select {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-h);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.funcionarios-page .kpi-value {
+  margin-bottom: 12px;
+}
+
+.func-empty {
+  text-align: center !important;
+  color: var(--text-muted) !important;
+  padding: 40px 0 !important;
+}

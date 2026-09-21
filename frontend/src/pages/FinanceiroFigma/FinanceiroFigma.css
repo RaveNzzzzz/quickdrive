@@ -1,0 +1,160 @@
+.financeiro-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 50px;
+  align-items: stretch;
+}
+
+.fin-left,
+.fin-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Tabs */
+
+.fin-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.fin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.fin-tab.active {
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.fin-tab-count {
+  font-size: 11px;
+  background: var(--bg);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/* Table card */
+
+.fin-table-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.fin-table-title {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+.fin-table-card .data-table th,
+.fin-table-card .data-table td {
+  padding-left: 0;
+}
+
+.fin-name {
+  display: block;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.fin-note {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.fin-value {
+  font-weight: 700;
+}
+
+.fin-date {
+  color: var(--text-muted);
+}
+
+.fin-pagination {
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* Right column: create button + pie */
+
+.fin-create {
+  align-self: center;
+  justify-content: center;
+  min-width: 250px;
+}
+
+.fin-chart-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.fin-chart-title {
+  font-size: 14px;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fin-chart-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fin-chart {
+  flex: 1;
+  height: 230px;
+  min-width: 0;
+}
+
+.fin-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.fin-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fin-legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
