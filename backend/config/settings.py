@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     # do projeto
     "accounts",
     "tasks",
+    "vehicles",
 ]
 
 MIDDLEWARE = [
