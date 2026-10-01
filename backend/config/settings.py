@@ -17,7 +17,7 @@ DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 
-# Application definition
+# Application definition(importante: a ordem dos apps é relevante, pois alguns dependem de outros)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -93,7 +93,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": env.db_url(
         "DATABASE_URL",
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",  # type: ignore[arg-type] para evitar erro de tipo, pois a função db_url espera uma string, mas estamos passando um objeto Path. O f-string converte o Path em string.
     )
 }
 
