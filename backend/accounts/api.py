@@ -5,7 +5,7 @@ from ninja_jwt.authentication import JWTAuth
 from pydantic import EmailStr, Field
 
 User = get_user_model()
-router = Router(tags=["accounts"])
+router = Router(tags=["contas"])
 
 
 class SignupIn(Schema):

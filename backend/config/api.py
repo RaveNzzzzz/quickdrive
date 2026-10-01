@@ -1,16 +1,48 @@
+from django.core.exceptions import ValidationError
+from django.db.models import ProtectedError, RestrictedError
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
-from accounts.api import router as accounts_router
-from tasks.api import router as tasks_router
-from vehicles.api import router as vehicles_router
-from stock.api import router as stock_router
+from accounts.api import router as contas_router
+from customers.api import router as clientes_router
+from documents.api import docs_clientes_router, docs_funcionarios_router, tipos_router
+from employees.api import cargos_router, funcionarios_router, setores_router
 
 api = NinjaExtraAPI(title="QuickDrive API", version="1.0.0")
 
 api.register_controllers(NinjaJWTDefaultController)
 
-api.add_router("/accounts", accounts_router)
-api.add_router("/tasks", tasks_router)
-api.add_router("/vehicles", vehicles_router)
-api.add_router("/stock", stock_router)
+
+api.add_router("/contas", contas_router)
+
+api.add_router("/setores", setores_router)
+api.add_router("/cargos", cargos_router)
+api.add_router("/funcionarios", funcionarios_router)
+
+api.add_router("/clientes", clientes_router)
+
+api.add_router("/documentos/tipos", tipos_router, tags=["tipos documentos"])
+api.add_router(
+    "/documentos/clientes", docs_clientes_router, tags=["documentos clientes"]
+)
+api.add_router(
+    "/documentos/funcionarios",
+    docs_funcionarios_router,
+    tags=["documentos funcionários"],
+)
+
+
+@api.exception_handler(ValidationError)
+def validation_error(request, exc):
+    detail = exc.message_dict if hasattr(exc, "error_dict") else exc.messages
+    return api.create_response(request, {"detail": detail}, status=422)
+
+
+@api.exception_handler(ProtectedError)
+@api.exception_handler(RestrictedError)
+def em_uso(request, exc):
+    return api.create_response(
+        request,
+        {"detail": "Registro em uso por outros dados e não pode ser removido."},
+        status=409,
+    )
