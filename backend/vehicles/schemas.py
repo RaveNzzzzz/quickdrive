@@ -22,6 +22,23 @@ class CarroceriaOut(Schema):
     id: int
     nome: str
 
+# vehicles/schemas.py — adicionar junto dos outros
+
+class MarcaIn(Schema):
+    nome: str
+
+
+class CambioIn(Schema):
+    nome: str
+
+
+class CombustivelIn(Schema):
+    nome: str
+
+
+class CarroceriaIn(Schema):
+    nome: str
+
 
 class VeiculoIn(Schema):
     ano_modelo: int
