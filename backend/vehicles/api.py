@@ -56,28 +56,6 @@ def delete_veiculo(request, veiculo_id: int):
     veiculo.delete()
     return 204, None
 
-
-# Endpoints auxiliares, para popular selects no frontend (marca, câmbio, etc.)
-
-@router.get("/opcoes/marcas", response=list[MarcaOut])
-def list_marcas(request):
-    return Marca.objects.all()
-
-
-@router.get("/opcoes/cambios", response=list[CambioOut])
-def list_cambios(request):
-    return Cambio.objects.all()
-
-
-@router.get("/opcoes/combustiveis", response=list[CombustivelOut])
-def list_combustiveis(request):
-    return Combustivel.objects.all()
-
-
-@router.get("/opcoes/carrocerias", response=list[CarroceriaOut])
-def list_carrocerias(request):
-    return Carroceria.objects.all()
-
 # --- Marca ---
 
 @router.get("/opcoes/marcas", response=list[MarcaOut])
