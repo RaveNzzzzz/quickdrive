@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    api<User>('/accounts/me')
+    api<User>('/contas/me')
       .then(setUser)
       .catch(() => tokens.clear())
       .finally(() => setLoading(false))
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ username, password }),
     })
     tokens.set(data.access, data.refresh)
-    setUser(await api<User>('/accounts/me'))
+    setUser(await api<User>('/contas/me'))
   }
 
   function logout() {

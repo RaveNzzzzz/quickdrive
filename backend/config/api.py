@@ -7,6 +7,8 @@ from accounts.api import router as contas_router
 from customers.api import router as clientes_router
 from documents.api import docs_clientes_router, docs_funcionarios_router, tipos_router
 from employees.api import cargos_router, funcionarios_router, setores_router
+from vehicles.api import router as veiculos_router
+from stock.api import router as estoque_router
 
 api = NinjaExtraAPI(title="QuickDrive API", version="1.0.0")
 
@@ -30,7 +32,8 @@ api.add_router(
     docs_funcionarios_router,
     tags=["documentos funcionários"],
 )
-
+api.add_router("/veiculos", veiculos_router)
+api.add_router("/estoque", estoque_router)
 
 @api.exception_handler(ValidationError)
 def validation_error(request, exc):
