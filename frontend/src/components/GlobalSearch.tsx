@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
+import { api } from '../api/client'
+import type { Paginated, VeiculoApi } from '../types'
 import { employees } from '../pages/Funcionarios/funcionariosData'
 import { products } from '../pages/Estoque/estoqueData'
-import { patioVehicles } from '../pages/Patio/patioData'
 import { navItems } from './navigation'
 
 type Result = {
@@ -14,21 +15,28 @@ type Result = {
   path: string
 }
 
-const allResults: Result[] = [
-  ...navItems.map((item) => ({
-    key: `page-${item.path}`,
-    group: 'Páginas',
-    title: item.label,
-    subtitle: item.description,
-    path: item.path,
-  })),
-  ...patioVehicles.map((v) => ({
+// Veículos vêm da API sempre que a busca abre; o resto ainda é estático.
+type VehiclesState = { status: 'loading' } | { status: 'error' } | { status: 'ok'; items: Result[] }
+
+const pageResults: Result[] = navItems.map((item) => ({
+  key: `page-${item.path}`,
+  group: 'Páginas',
+  title: item.label,
+  subtitle: item.description,
+  path: item.path,
+}))
+
+function toVehicleResult(v: VeiculoApi): Result {
+  return {
     key: `patio-${v.id}`,
     group: 'Pátio',
-    title: v.name,
-    subtitle: `${v.plate} · ${v.vaga}`,
-    path: '/patio',
-  })),
+    title: `${v.marca} ${v.modelo}`,
+    subtitle: [v.placa, v.vaga].filter(Boolean).join(' · '),
+    path: `/patio/${v.id}`,
+  }
+}
+
+const staticResults: Result[] = [
   ...[...new Map(products.map((p) => [p.name, p])).values()].map((p) => ({
     key: `estoque-${p.id}`,
     group: 'Estoque',
@@ -59,24 +67,42 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
+  const [vehicles, setVehicles] = useState<VehiclesState>({ status: 'loading' })
 
   useEffect(() => {
     if (open) inputRef.current?.focus()
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+    let ignore = false
+    api<Paginated<VeiculoApi>>('/veiculos?limit=1000')
+      .then((data) => {
+        if (!ignore) setVehicles({ status: 'ok', items: data.items.map(toVehicleResult) })
+      })
+      .catch(() => {
+        if (!ignore) setVehicles({ status: 'error' })
+      })
+    return () => {
+      ignore = true
+    }
+  }, [open])
+
   const results = useMemo(() => {
     const q = normalize(query.trim())
-    if (!q) return allResults.filter((r) => r.group === 'Páginas')
-    return allResults
+    if (!q) return pageResults
+    const vehicleResults = vehicles.status === 'ok' ? vehicles.items : []
+    return [...pageResults, ...vehicleResults, ...staticResults]
       .filter((r) => normalize(`${r.title} ${r.subtitle} ${r.group}`).includes(q))
       .slice(0, 8)
-  }, [query])
+  }, [query, vehicles])
 
   if (!open) return null
 
   function close() {
     setQuery('')
     setActive(0)
+    setVehicles({ status: 'loading' })
     onClose()
   }
 
@@ -129,6 +155,12 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
               </button>
             </li>
           ))}
+          {query.trim() && vehicles.status === 'loading' && (
+            <li className="gsearch-empty">Carregando veículos…</li>
+          )}
+          {query.trim() && vehicles.status === 'error' && (
+            <li className="gsearch-empty">Não foi possível carregar os veículos.</li>
+          )}
           {results.length === 0 && <li className="gsearch-empty">Nada encontrado para "{query}".</li>}
         </ul>
       </div>

@@ -40,12 +40,18 @@ async function refreshAccessToken(): Promise<boolean> {
   return true
 }
 
+// A API devolve arquivos como "/media/..."; eles ficam no servidor do Django, fora do /api.
+export function mediaUrl(path: string): string {
+  return new URL(path, API_URL).href
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const request = (token: string | null) =>
     fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        // Com FormData (upload de arquivo) o navegador define o Content-Type sozinho.
+        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },

@@ -13,5 +13,6 @@ class StatusRevisao(models.TextChoices):
 class StatusVeiculo(models.TextChoices):
     DISPONIVEL = "disponivel", "Disponível"
     RESERVADO = "reservado", "Reservado"
+    PREPARACAO = "preparacao", "Em preparação"
     VENDIDO = "vendido", "Vendido"
     MANUTENCAO = "manutencao", "Em manutenção"

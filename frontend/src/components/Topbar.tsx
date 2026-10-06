@@ -14,15 +14,26 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   year: 'numeric',
 })
 
+// Nome da tela de detalhe de cada seção (ex.: /patio/12).
+const DETAIL_LABELS: Record<string, string> = {
+  patio: 'Ficha do veículo',
+}
+
 function capitalize(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 export function Topbar() {
   const { pathname } = useLocation()
-  const page = findPage(pathname)
-  const title = page?.label ?? 'QuickDrive'
   const isHome = pathname === '/'
+
+  // "/patio/12" -> section = "patio", detailId = "12"
+  const [section = '', detailId] = pathname.split('/').filter(Boolean)
+  const isDetail = Boolean(detailId)
+
+  // Numa tela de detalhe, `page` é a seção "pai" (Pátio), usada no link do caminho.
+  const page = findPage(isDetail ? `/${section}` : pathname)
+  const title = isDetail ? (DETAIL_LABELS[section] ?? 'Detalhes') : (page?.label ?? 'QuickDrive')
   const [searchOpen, setSearchOpen] = useState(false)
 
   // Ctrl/Cmd + K opens the search from anywhere
@@ -45,14 +56,22 @@ export function Topbar() {
           {!isHome && (
             <>
               <ChevronRight size={14} />
-              <span aria-current="page">{title}</span>
+              {isDetail ? (
+                <>
+                  <Link to={`/${section}`}>{page?.label ?? section}</Link>
+                  <ChevronRight size={14} />
+                  <span aria-current="page">{title}</span>
+                </>
+              ) : (
+                <span aria-current="page">{title}</span>
+              )}
             </>
           )}
         </nav>
         <h1>{title}</h1>
         <p className="topbar-date">
           {capitalize(dateFormatter.format(new Date()))}
-          {page?.description && <span> · {page.description}</span>}
+          {!isDetail && page?.description && <span> · {page.description}</span>}
         </p>
       </div>
 

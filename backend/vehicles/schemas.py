@@ -60,14 +60,25 @@ class VeiculoIn(Schema):
     cambio_id: int
     combustivel_id: int
     carroceria_id: int
-
+    vaga: str = ""
 
 class VeiculoUpdate(Schema):
     ano_modelo: int | None = None
+    ano_fabricacao: date | None = None
+    portas: int | None = None
     quilometragem: int | None = None
+    lugares: int | None = None
+    chassi: str | None = None
+    versao: str | None = None
     cor: str | None = None
+    porta_malas: int | None = None
+    motorizacao: str | None = None
     status: str | None = None
+    renavam: str | None = None
     valor: float | None = None
+    modelo: str | None = None
+    placa: str | None = None
+    vaga: str | None = None
     marca_id: int | None = None
     cambio_id: int | None = None
     combustivel_id: int | None = None
@@ -92,10 +103,22 @@ class VeiculoOut(Schema):
     valor: float
     modelo: str
     placa: str
+    vaga: str
     marca: str
     cambio: str
     combustivel: str
     carroceria: str
+    marca_id: int
+    cambio_id: int
+    combustivel_id: int
+    carroceria_id: int
+    imagem: str | None = None
+
+    @staticmethod
+    def resolve_imagem(obj):
+        # Percorre .all() (e não .filter) para aproveitar o prefetch_related da listagem.
+        principal = next((img for img in obj.imagens.all() if img.principal), None)
+        return principal.imagem.url if principal else None
 
     @staticmethod
     def resolve_marca(obj):

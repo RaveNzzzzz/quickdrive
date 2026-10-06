@@ -1,9 +1,17 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import File, Router, UploadedFile
 from ninja.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
+from ninja.errors import HttpError
+from PIL import Image, UnidentifiedImageError
 
-from .models import Cambio, Carroceria, Combustivel, Marca, Veiculo
+CAMPOS_UNICOS = (("placa", "a placa"), ("chassi", "o chassi"), ("renavam", "o RENAVAM"))
+EXTENSOES_IMAGEM = ("jpg", "jpeg", "png", "webp")
+TAMANHO_MAXIMO_IMAGEM_MB = 5
+
+
+from .models import Cambio, Carroceria, Combustivel, Imagem, Marca, Veiculo
 from .schemas import (
     CambioIn,
     CambioOut,
@@ -24,7 +32,9 @@ router = Router(tags=["vehicles"], auth=JWTAuth())
 @router.get("", response=list[VeiculoOut])
 @paginate
 def list_veiculos(request, status: str | None = None):
-    qs = Veiculo.objects.select_related("marca", "cambio", "combustivel", "carroceria")
+    qs = Veiculo.objects.select_related(
+        "marca", "cambio", "combustivel", "carroceria"
+    ).prefetch_related("imagens")
     if status is not None:
         qs = qs.filter(status=status)
     return qs
@@ -55,6 +65,38 @@ def delete_veiculo(request, veiculo_id: int):
     veiculo = get_object_or_404(Veiculo, id=veiculo_id)
     veiculo.delete()
     return 204, None
+
+
+def _checar_imagem(imagem: UploadedFile):
+    extensao = imagem.name.rsplit(".", 1)[-1].lower() if "." in imagem.name else ""
+    if extensao not in EXTENSOES_IMAGEM:
+        raise HttpError(422, "Envie uma imagem JPG, PNG ou WEBP.")
+    if imagem.size > TAMANHO_MAXIMO_IMAGEM_MB * 1024 * 1024:
+        raise HttpError(422, f"A imagem deve ter no máximo {TAMANHO_MAXIMO_IMAGEM_MB} MB.")
+    try:
+        Image.open(imagem).verify()
+    except (UnidentifiedImageError, OSError):
+        raise HttpError(422, "O arquivo enviado não é uma imagem válida.")
+    imagem.seek(0)
+
+
+@router.post("/{int:veiculo_id}/imagem", response=VeiculoOut)
+@transaction.atomic
+def enviar_imagem(request, veiculo_id: int, imagem: UploadedFile = File(...)):
+    """Define a imagem principal do veículo. Se já existir uma, troca e apaga o arquivo antigo."""
+    veiculo = get_object_or_404(Veiculo, id=veiculo_id)
+    _checar_imagem(imagem)
+
+    principal = veiculo.imagens.filter(principal=True).first()
+    if principal is None:
+        Imagem.objects.create(veiculo=veiculo, imagem=imagem, principal=True)
+    else:
+        antigo = principal.imagem.name
+        storage = principal.imagem.storage
+        principal.imagem = imagem
+        principal.save()
+        transaction.on_commit(lambda: storage.delete(antigo))
+    return veiculo
 
 # --- Marca ---
 
@@ -166,3 +208,33 @@ def delete_carroceria(request, carroceria_id: int):
     carroceria = get_object_or_404(Carroceria, id=carroceria_id)
     carroceria.delete()
     return 204, None
+
+def _checar_unicos(dados: dict, ignorar_id: int | None = None):
+    for campo, rotulo in CAMPOS_UNICOS:
+        valor = dados.get(campo)
+        if valor is None:
+            continue
+        existe = Veiculo.objects.filter(**{campo: valor})
+        if ignorar_id is not None:
+            existe = existe.exclude(id=ignorar_id)
+        if existe.exists():
+            raise HttpError(409, f"Já existe um veículo com {rotulo} {valor}.")
+
+
+@router.post("", response={201: VeiculoOut})
+def create_veiculo(request, payload: VeiculoIn):
+    dados = payload.dict()
+    _checar_unicos(dados)
+    veiculo = Veiculo.objects.create(**dados)
+    return 201, veiculo
+
+
+@router.patch("/{int:veiculo_id}", response=VeiculoOut)
+def update_veiculo(request, veiculo_id: int, payload: VeiculoUpdate):
+    veiculo = get_object_or_404(Veiculo, id=veiculo_id)
+    dados = payload.dict(exclude_unset=True)
+    _checar_unicos(dados, ignorar_id=veiculo.id)
+    for campo, valor in dados.items():
+        setattr(veiculo, campo, valor)
+    veiculo.save()
+    return veiculo
