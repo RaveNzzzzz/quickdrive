@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api } from '../api/client'
-import type { Paginated, VeiculoApi } from '../types'
+import type { Paginated, VeiculoApi, ProdutoApi, CategoriaProdutoApi } from '../types'
 import { employees } from '../pages/Funcionarios/funcionariosData'
-import { products } from '../pages/Estoque/estoqueData'
+
 import { navItems } from './navigation'
 
 type Result = {
@@ -15,7 +15,7 @@ type Result = {
   path: string
 }
 
-// Veículos vêm da API sempre que a busca abre; o resto ainda é estático.
+// Veículos e produtos vêm da API sempre que a busca abre.
 type VehiclesState = { status: 'loading' } | { status: 'error' } | { status: 'ok'; items: Result[] }
 
 const pageResults: Result[] = navItems.map((item) => ({
@@ -37,13 +37,6 @@ function toVehicleResult(v: VeiculoApi): Result {
 }
 
 const staticResults: Result[] = [
-  ...[...new Map(products.map((p) => [p.name, p])).values()].map((p) => ({
-    key: `estoque-${p.id}`,
-    group: 'Estoque',
-    title: p.name,
-    subtitle: p.category,
-    path: '/estoque',
-  })),
   ...employees.map((e) => ({
     key: `func-${e.id}`,
     group: 'Funcionários',
@@ -68,6 +61,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const [vehicles, setVehicles] = useState<VehiclesState>({ status: 'loading' })
+  const [stock, setStock] = useState<VehiclesState>({ status: 'loading' })
 
   useEffect(() => {
     if (open) inputRef.current?.focus()
@@ -83,6 +77,13 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
       .catch(() => {
         if (!ignore) setVehicles({ status: 'error' })
       })
+    Promise.all([api<ProdutoApi[]>('/estoque/produtos'), api<CategoriaProdutoApi[]>('/estoque/categorias')])
+      .then(([products, categories]) => {
+        if (!ignore) setStock({ status: 'ok', items: products.map(p => ({
+          key: `estoque-${p.id}`, group: 'Estoque', title: p.nome,
+          subtitle: categories.find(c => c.id === p.categoria_id)?.nome ?? '', path: '/estoque',
+        })) })
+      }).catch(() => { if (!ignore) setStock({ status: 'error' }) })
     return () => {
       ignore = true
     }
@@ -92,10 +93,10 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     const q = normalize(query.trim())
     if (!q) return pageResults
     const vehicleResults = vehicles.status === 'ok' ? vehicles.items : []
-    return [...pageResults, ...vehicleResults, ...staticResults]
+    return [...pageResults, ...vehicleResults, ...(stock.status === 'ok' ? stock.items : []), ...staticResults]
       .filter((r) => normalize(`${r.title} ${r.subtitle} ${r.group}`).includes(q))
       .slice(0, 8)
-  }, [query, vehicles])
+  }, [query, vehicles, stock])
 
   if (!open) return null
 
@@ -103,6 +104,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     setQuery('')
     setActive(0)
     setVehicles({ status: 'loading' })
+    setStock({ status: 'loading' })
     onClose()
   }
 
@@ -161,6 +163,8 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           {query.trim() && vehicles.status === 'error' && (
             <li className="gsearch-empty">Não foi possível carregar os veículos.</li>
           )}
+          {query.trim() && stock.status === 'loading' && <li className="gsearch-empty">Carregando produtos…</li>}
+          {query.trim() && stock.status === 'error' && <li className="gsearch-empty">Não foi possível carregar os produtos.</li>}
           {results.length === 0 && <li className="gsearch-empty">Nada encontrado para "{query}".</li>}
         </ul>
       </div>

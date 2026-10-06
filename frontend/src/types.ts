@@ -64,3 +64,6 @@ export type VeiculoPayload = {
   status: string
   vaga: string
 }
+export type CategoriaProdutoApi = OpcaoApi
+export type ProdutoApi = { id: number; nome: string; especificacao: string; categoria_id: number }
+export type LoteApi = { id: number; quantidade: number; data_validade: string | null; numero_lote: string; produto_id: number }
