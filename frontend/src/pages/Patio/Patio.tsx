@@ -1,13 +1,17 @@
-import { useMemo, useState } from 'react'
-import { ArrowDownWideNarrow, Car, ChevronRight, Plus, Search } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowDownWideNarrow, ChevronRight, Plus, Search, X } from 'lucide-react'
 import { Pagination } from '../../components/Pagination'
+import { api } from '../../api/client'
+import type { Paginated, VeiculoApi } from '../../types'
 import {
   lotCapacity,
-  patioVehicles,
   staleThresholdDays,
   targetAverageDays,
   type PatioStatus,
 } from './patioData'
+import { VeiculoFormModal } from './VeiculoFormModal'
+import { VeiculoFoto } from './VeiculoFoto'
 import './Patio.css'
 
 const PAGE_SIZE = 6
@@ -25,11 +29,110 @@ const statusClass: Record<PatioStatus, string> = {
   Preparação: 'patio-status-preparacao',
 }
 
+// Formato que a tela usa (o mesmo dos dados fixos que existiam antes).
+type PatioVehicle = {
+  id: number
+  name: string
+  status: PatioStatus
+  vaga: string
+  bodyType: string
+  year: number
+  engine: string
+  plate: string
+  km: number
+  daysInLot: number
+  price: number
+  image: string | null
+}
+
+// Status que a API devolve -> texto que a tela mostra.
+// "vendido" e "manutencao" não estão aqui de propósito: não aparecem no pátio.
+const statusFromApi: Record<string, PatioStatus | undefined> = {
+  disponivel: 'Disponível',
+  reservado: 'Reservado',
+  preparacao: 'Preparação',
+}
+
+// Converte um veículo da API para o formato da tela.
+function toPatioVehicle(v: VeiculoApi): PatioVehicle | null {
+  const status = statusFromApi[v.status]
+  if (!status) return null
+
+  const daysInLot = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(v.data_entrada).getTime()) / 86_400_000),
+  )
+
+  return {
+    id: v.id,
+    name: `${v.marca} ${v.modelo}`,
+    status,
+    vaga: v.vaga,
+    bodyType: v.carroceria,
+    year: v.ano_modelo,
+    engine: v.motorizacao,
+    plate: v.placa,
+    km: v.quilometragem,
+    daysInLot,
+    price: v.valor,
+    image: v.imagem,
+  }
+}
+
 export default function Patio() {
+  const [patioVehicles, setPatioVehicles] = useState<PatioVehicle[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const [creating, setCreating] = useState(false)
+  const [notice, setNotice] = useState('')
+  const location = useLocation()
+  const navigate = useNavigate()
+
   const [tab, setTab] = useState<Tab>('Todos')
   const [query, setQuery] = useState('')
   const [sortByDays, setSortByDays] = useState(false)
   const [page, setPage] = useState(1)
+
+  // Busca os veículos na API quando a página abre.
+  useEffect(() => {
+    api<Paginated<VeiculoApi>>('/veiculos?limit=1000')
+      .then((data) =>
+        setPatioVehicles(
+          data.items.map(toPatioVehicle).filter((v): v is PatioVehicle => v !== null),
+        ),
+      )
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Aviso vindo de outra tela (ex.: depois de excluir um veículo na ficha).
+  useEffect(() => {
+    const state = location.state as { notice?: string } | null
+    if (state?.notice) {
+      setNotice(state.notice)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location, navigate])
+
+  // O aviso some sozinho depois de alguns segundos.
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(''), 5000)
+    return () => clearTimeout(timer)
+  }, [notice])
+
+  function handleCreated(saved: VeiculoApi, aviso?: string) {
+    const item = toPatioVehicle(saved)
+    if (item) setPatioVehicles((prev) => [item, ...prev])
+    setCreating(false)
+    setNotice(
+      aviso ??
+        (item
+          ? 'Veículo adicionado ao pátio.'
+          : 'Veículo cadastrado. Com esse status, ele não aparece no pátio.'),
+    )
+  }
 
   const counts = useMemo(() => {
     const base: Record<Tab, number> = { Todos: 0, Disponível: 0, Reservado: 0, Preparação: 0 }
@@ -38,20 +141,26 @@ export default function Patio() {
       base[vehicle.status]++
     }
     return base
-  }, [])
+  }, [patioVehicles])
 
   const totalValue = useMemo(
     () => patioVehicles.reduce((sum, vehicle) => sum + vehicle.price, 0),
-    [],
+    [patioVehicles],
   )
+
   const averageDays = useMemo(
-    () => Math.round(patioVehicles.reduce((sum, v) => sum + v.daysInLot, 0) / patioVehicles.length),
-    [],
+    () =>
+      patioVehicles.length
+        ? Math.round(patioVehicles.reduce((sum, v) => sum + v.daysInLot, 0) / patioVehicles.length)
+        : 0,
+    [patioVehicles],
   )
+
   const staleCount = useMemo(
     () => patioVehicles.filter((v) => v.daysInLot >= staleThresholdDays).length,
-    [],
+    [patioVehicles],
   )
+
   const freeSpots = lotCapacity - patioVehicles.length
 
   const filtered = useMemo(() => {
@@ -72,7 +181,7 @@ export default function Patio() {
     }
 
     return list
-  }, [tab, query, sortByDays])
+  }, [patioVehicles, tab, query, sortByDays])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -85,6 +194,15 @@ export default function Patio() {
 
   return (
     <div className="patio-page">
+      {notice && (
+        <div className="patio-notice" role="status">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice('')} aria-label="Fechar aviso">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="kpi-row kpi-row-4">
         <div className="card kpi-card">
           <div className="kpi-card-header">
@@ -162,7 +280,7 @@ export default function Patio() {
             <ArrowDownWideNarrow size={16} />
             Mais tempo no pátio
           </button>
-          <button type="button" className="btn btn-primary">
+          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             <Plus size={16} />
             Adicionar Veículo
           </button>
@@ -185,7 +303,12 @@ export default function Patio() {
             </p>
 
             <div className="vehicle-photo">
-              <Car size={32} />
+              <VeiculoFoto
+                key={vehicle.image ?? 'sem-imagem'}
+                src={vehicle.image}
+                alt={vehicle.name}
+                iconSize={32}
+              />
             </div>
 
             <div className="vehicle-info-row">
@@ -208,15 +331,23 @@ export default function Patio() {
                 <span className="vehicle-info-label">Preço de tabela</span>
                 <strong className="vehicle-price">{currency.format(vehicle.price)}</strong>
               </div>
-              <button type="button" className="vehicle-link">
+              <Link to={`/patio/${vehicle.id}`} className="vehicle-link">
                 Ver ficha
                 <ChevronRight size={14} />
-              </button>
+              </Link>
             </div>
           </div>
         ))}
 
-        {pageItems.length === 0 && (
+        {loading && <p className="patio-empty">Carregando…</p>}
+
+        {error && (
+          <p className="patio-empty" role="alert">
+            {error}
+          </p>
+        )}
+
+        {!loading && !error && pageItems.length === 0 && (
           <p className="patio-empty">Nenhum veículo encontrado para esse filtro.</p>
         )}
       </div>
@@ -229,6 +360,10 @@ export default function Patio() {
         itemLabel="veículos"
         onPageChange={setPage}
       />
+
+      {creating && (
+        <VeiculoFormModal mode="create" onClose={() => setCreating(false)} onSaved={handleCreated} />
+      )}
     </div>
   )
 }

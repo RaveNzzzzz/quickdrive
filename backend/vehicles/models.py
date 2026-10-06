@@ -43,6 +43,7 @@ class Veiculo(models.Model):
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     modelo = models.CharField(max_length=60)
     placa = models.CharField(max_length=8, unique=True)
+    vaga = models.CharField(max_length=10, blank=True, default="")
 
     marca = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name="veiculos")
     cambio = models.ForeignKey(Cambio, on_delete=models.PROTECT, related_name="veiculos")

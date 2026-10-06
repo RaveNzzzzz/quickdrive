@@ -4,6 +4,7 @@ import { Topbar } from './components/Topbar'
 import Home from './pages/Home/Home'
 import Estoque from './pages/Estoque/Estoque'
 import Patio from './pages/Patio/Patio'
+import VeiculoFicha from './pages/Patio/VeiculoFicha'
 import Vendas from './pages/Vendas/Vendas'
 import Clientes from './pages/Clientes/Clientes'
 import FunilClientes from './pages/FunilClientes/FunilClientes'
@@ -25,6 +26,7 @@ function Layout() {
             <Route path="/" element={<Home />} />
             <Route path="/Estoque" element={<Estoque />} />
             <Route path="/Patio" element={<Patio />} />
+            <Route path="/patio/:id" element={<VeiculoFicha />} />
             <Route path="/Vendas" element={<Vendas />} />
             <Route path="/Clientes" element={<Clientes />} />
             <Route path="/Funil" element={<FunilClientes />} />
