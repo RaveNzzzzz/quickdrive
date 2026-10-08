@@ -5,7 +5,12 @@ from ninja_jwt.authentication import JWTAuth
 
 from people.services import definir, salvar
 
-from .models import DocumentoCliente, DocumentoFuncionario, TipoDocumento
+from .models import (
+    DocumentoCliente,
+    DocumentoFuncionario,
+    DocumentoVeiculo,
+    TipoDocumento,
+)
 from .schemas import (
     DocumentoClienteFiltro,
     DocumentoClienteIn,
@@ -14,6 +19,9 @@ from .schemas import (
     DocumentoFuncionarioIn,
     DocumentoFuncionarioOut,
     DocumentoUpdate,
+    DocumentoVeiculoFiltro,
+    DocumentoVeiculoIn,
+    DocumentoVeiculoOut,
     TipoDocumentoIn,
     TipoDocumentoOut,
     TipoDocumentoUpdate,
@@ -21,6 +29,7 @@ from .schemas import (
 from .services import remover_documento, salvar_documento
 
 # =============== Tipos de documento ===============
+
 tipos_router = Router(tags=["tipos de documento"], auth=JWTAuth())
 
 
@@ -53,6 +62,7 @@ def remover_tipo(request, tipo_id: int):
 
 
 # =============== Documentos de clientes ===============
+
 docs_clientes_router = Router(tags=["documentos de clientes"], auth=JWTAuth())
 
 
@@ -100,6 +110,7 @@ def remover_documento_cliente(request, documento_id: int):
 
 
 # =============== Documentos de funcionários ===============
+
 docs_funcionarios_router = Router(tags=["documentos de funcionários"], auth=JWTAuth())
 
 
@@ -109,7 +120,9 @@ def _qs_funcionario():
 
 @docs_funcionarios_router.get("", response=list[DocumentoFuncionarioOut])
 @paginate
-def listar_documentos_funcionarios(request, filtros: DocumentoFuncionarioFiltro = Query(...)):
+def listar_documentos_funcionarios(
+    request, filtros: DocumentoFuncionarioFiltro = Query(...)
+):
     return filtros.filter(_qs_funcionario())
 
 
@@ -143,4 +156,52 @@ def atualizar_documento_funcionario(
 @docs_funcionarios_router.delete("/{int:documento_id}", response={204: None})
 def remover_documento_funcionario(request, documento_id: int):
     remover_documento(get_object_or_404(DocumentoFuncionario, id=documento_id))
+    return 204, None
+
+
+# =============== Documentos de veículos ===============
+
+docs_veiculos_router = Router(tags=["documentos de veiculos"], auth=JWTAuth())
+
+
+def _qs_veiculo():
+    return DocumentoVeiculo.objects.select_related("tipo")
+
+
+@docs_veiculos_router.get("", response=list[DocumentoVeiculoOut])
+@paginate
+def listar_documentos_veiculos(request, filtros: DocumentoVeiculoFiltro = Query(...)):
+    return filtros.filter(_qs_veiculo())
+
+
+@docs_veiculos_router.post("", response={201: DocumentoVeiculoOut})
+def criar_documento_veiculo(
+    request,
+    payload: DocumentoVeiculoIn = Form(...),
+    arquivo: UploadedFile = File(None),
+):
+    documento = salvar_documento(DocumentoVeiculo(), payload.dict(), arquivo)
+    return 201, _qs_veiculo().get(pk=documento.pk)
+
+
+@docs_veiculos_router.get("/{int:documento_id}", response=DocumentoVeiculoOut)
+def obter_documento_veiculo(request, documento_id: int):
+    return get_object_or_404(_qs_veiculo(), id=documento_id)
+
+
+@docs_veiculos_router.patch("/{int:documento_id}", response=DocumentoVeiculoOut)
+def atualizar_documento_veiculo(
+    request,
+    documento_id: int,
+    payload: DocumentoUpdate = Form(...),
+    arquivo: UploadedFile = File(None),
+):
+    documento = get_object_or_404(_qs_veiculo(), id=documento_id)
+    salvar_documento(documento, payload.dict(exclude_unset=True), arquivo)
+    return _qs_veiculo().get(pk=documento_id)
+
+
+@docs_veiculos_router.delete("/{int:documento_id}", response={204: None})
+def remover_documento_veiculo(request, documento_id: int):
+    remover_documento(get_object_or_404(DocumentoVeiculo, id=documento_id))
     return 204, None

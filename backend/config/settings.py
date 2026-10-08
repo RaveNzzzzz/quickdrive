@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     "customers",
     "documents",
     "vehicles",
-    "stock"
+    "stock",
+    "notifications",
 ]
 
 MEDIA_ROOT = BASE_DIR / "media"

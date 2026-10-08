@@ -7,6 +7,7 @@ from django.utils import timezone
 from core.models import TimeStampedModel
 from customers.models import Cliente
 from employees.models import Funcionario
+from vehicles.models import Veiculo
 
 from .enums import SituacaoDocumento
 from .validators import extensao_permitida, tamanho_maximo
@@ -30,7 +31,9 @@ class TipoDocumento(TimeStampedModel):
 
 
 class DocumentoBase(TimeStampedModel):
-    tipo = models.ForeignKey(TipoDocumento, on_delete=models.PROTECT, related_name="%(class)ss")
+    tipo = models.ForeignKey(
+        TipoDocumento, on_delete=models.PROTECT, related_name="%(class)ss"
+    )
     arquivo = models.FileField(
         "arquivo",
         upload_to=caminho_arquivo,
@@ -65,7 +68,9 @@ class DocumentoBase(TimeStampedModel):
 
 
 class DocumentoCliente(DocumentoBase):
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name="documentos")
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.CASCADE, related_name="documentos"
+    )
 
     class Meta(DocumentoBase.Meta):
         verbose_name = "documento do cliente"
@@ -76,7 +81,9 @@ class DocumentoCliente(DocumentoBase):
 
 
 class DocumentoFuncionario(DocumentoBase):
-    funcionario = models.ForeignKey(Funcionario, on_delete=models.CASCADE, related_name="documentos")
+    funcionario = models.ForeignKey(
+        Funcionario, on_delete=models.CASCADE, related_name="documentos"
+    )
 
     class Meta(DocumentoBase.Meta):
         verbose_name = "documento do funcionário"
@@ -84,3 +91,16 @@ class DocumentoFuncionario(DocumentoBase):
 
     def __str__(self):
         return f"{self.tipo} - {self.funcionario.pessoa}"
+
+
+class DocumentoVeiculo(DocumentoBase):
+    veiculo = models.ForeignKey(
+        Veiculo, on_delete=models.CASCADE, related_name="documentos"
+    )
+
+    class Meta(DocumentoBase.Meta):
+        verbose_name = "documento do veículo"
+        verbose_name_plural = "documentos dos veículos"
+
+    def __str__(self):
+        return f"{self.tipo} - {self.veiculo.marca.nome} {self.veiculo.modelo}"

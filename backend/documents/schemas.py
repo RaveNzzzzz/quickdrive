@@ -76,3 +76,20 @@ class DocumentoFuncionarioFiltro(FilterSchema):
     tipo_id: int | None = None
     situacao: SituacaoDocumento | None = None
     vence_ate: date | None = Field(None, q="vencimento__lte")
+
+
+class DocumentoVeiculoOut(DocumentoOut):
+    veiculo_id: int
+
+
+class DocumentoVeiculoIn(Schema):
+    veiculo_id: int
+    tipo_id: int
+    vencimento: date | None = None
+
+
+class DocumentoVeiculoFiltro(FilterSchema):
+    veiculo_id: int | None = None
+    tipo_id: int | None = None
+    situacao: SituacaoDocumento | None = None
+    vence_ate: date | None = Field(None, q="vencimento__lte")

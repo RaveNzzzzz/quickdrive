@@ -7,7 +7,9 @@ from people.models import Pessoa
 
 
 class Cliente(TimeStampedModel):
-    pessoa = models.OneToOneField(Pessoa, on_delete=models.PROTECT, related_name="cliente")
+    pessoa = models.OneToOneField(
+        Pessoa, on_delete=models.PROTECT, related_name="cliente"
+    )
 
     codigo = models.UUIDField("código", default=uuid.uuid4, unique=True, editable=False)
     ativo = models.BooleanField("ativo", default=True, db_index=True)
