@@ -148,6 +148,7 @@ MAILERS = {
 
 # --- Usuário customizado ---
 AUTH_USER_MODEL = "accounts.User"
+AUTHENTICATION_BACKENDS = ["accounts.authentication.EmployeeModelBackend"]
 
 # --- Localização ---
 LANGUAGE_CODE = "pt-br"
@@ -161,6 +162,9 @@ CORS_ALLOW_CREDENTIALS = True
 
 # --- JWT ---
 NINJA_JWT = {
+    "USER_AUTHENTICATION_RULE": "accounts.authentication.usuario_pode_autenticar",
+    "TOKEN_OBTAIN_PAIR_REFRESH_INPUT_SCHEMA": "accounts.token_schemas.EmployeeTokenRefreshInputSchema",
+    "TOKEN_VERIFY_INPUT_SCHEMA": "accounts.token_schemas.EmployeeTokenVerifyInputSchema",
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,

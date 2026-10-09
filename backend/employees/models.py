@@ -24,6 +24,8 @@ class Setor(TimeStampedModel):
 
 
 class Cargo(TimeStampedModel):
+    papel_acesso = models.CharField(max_length=20, default='COMUM', choices=[
+        ('COMUM', 'Comum'), ('GERENTE', 'Gerente'), ('ADMINISTRADOR', 'Administrador')])
     nome = models.CharField("nome", max_length=100)
     descricao = models.CharField("descrição", max_length=200, blank=True)
 
@@ -106,3 +108,6 @@ class Desligamento(TimeStampedModel):
             if self.funcionario.ativo:
                 self.funcionario.ativo = False
                 self.funcionario.save(update_fields=["ativo", "updated_at"])
+            # Desligamento e desativação da conta pertencem à mesma transação.
+            from django.contrib.auth import get_user_model
+            get_user_model().objects.filter(funcionario_id=self.funcionario_id).update(is_active=False)

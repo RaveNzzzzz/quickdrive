@@ -20,7 +20,7 @@ class SetorAdmin(admin.ModelAdmin):
 
 @admin.register(Cargo)
 class CargoAdmin(admin.ModelAdmin):
-    list_display = ("nome", "setor", "descricao")
+    list_display = ("nome", "setor", "descricao", "papel_acesso")
     list_filter = ("setor",)
     search_fields = ("nome", "descricao", "setor__nome")
     list_select_related = ("setor",)

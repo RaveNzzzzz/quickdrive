@@ -1,22 +1,35 @@
-export type Employee = {
-  id: number
-  name: string
-  email: string
-  phone: string
-  sector: string
-  position: string
-  status: boolean
-  salary: number
+import { api } from '../../api/client'
+import type { Paginated } from '../../types'
+
+export type SetorApi = { id: number; nome: string }
+export type CargoApi = { id: number; nome: string; descricao: string; setor: SetorApi; papel_acesso: 'COMUM' | 'GERENTE' | 'ADMINISTRADOR' }
+export type EnderecoApi = { id?: number; rua: string; numero: string; complemento: string; bairro: string; cidade: string; uf: string; cep: string }
+export type PessoaApi = { id: number; nome: string; email: string; telefone: string; cpf_cnpj: string; tipo_pessoa: string; data_nascimento: string | null; endereco: EnderecoApi | null }
+export type FuncionarioApi = {
+  id: number; codigo: string; ativo: boolean; pessoa: PessoaApi; cargo: CargoApi
+  salario: string | number; comissao: string | number; data_admissao: string
+  inicio_expediente: string; final_expediente: string; regime_contratacao: string
+  banco: string; agencia: string; numero_conta: string; tipo_conta: string; chave_pix: string
+  desligamento: { id: number; data_desligamento: string; motivo: string; observacoes: string } | null
 }
 
-const page1: Omit<Employee, 'id'>[] = [
-  { name: 'Daniela Alves', email: 'daniela.alves@gmail.com', phone: '(19) 99988-7766', sector: 'Recursos Humanos', position: 'Gerente de RH', status: true, salary: 14900.00 },
-  { name: 'Júlia Lima', email: 'julia.lima@gmail.com', phone: '(19) 98765-4321', sector: 'Pátio', position: 'Vendedor', status: true, salary: 2000.00 },
-  { name: 'Luíza Dias', email: 'luiza.dias@gmail.com', phone: '(19) 99988-8776', sector: 'Financeiro', position: 'Contador', status: true, salary: 7000.00 },
-  { name: 'Marina Pereira', email: 'marina.pereira@gmail.com', phone: '(19) 99887-7654', sector: 'Pátio', position: 'Vendedor', status: false, salary: 2500.00 },
-  { name: 'Rafael Benitez', email: 'rafael.benitez@gmail.com', phone: '(19) 99876-5432', sector: 'Pátio', position: 'Vendedor', status: true, salary: 3000.00 },
-  { name: 'Ronaldo Cordeiro', email: 'ronaldo.cordeiro@gmail.com', phone: '(19) 99887-7665', sector: 'Pátio', position: 'Manobrista', status: false, salary: 2000.00 },
-  { name: 'Tiago Martins', email: 'tiago.martins@gmail.com', phone: '(19) 99887-6543', sector: 'Pátio', position: 'Vendedor', status: true, salary: 2500.00 },
-]
+// Percorre a paginação do Ninja, sem truncar os totais da tela.
+export async function listAll<T>(path: string): Promise<T[]> {
+  const items: T[] = []
+  let offset = 0
+  while (true) {
+    const data = await api<Paginated<T>>(`${path}${path.includes('?') ? '&' : '?'}limit=100&offset=${offset}`)
+    items.push(...data.items)
+    offset += data.items.length
+    if (offset >= data.count) return items
+    if (!data.items.length) throw new Error('A API retornou uma página vazia antes de completar a listagem.')
+  }
+}
 
-export const employees: Employee[] = page1.map((item, i) => ({ id: i + 1, ...item }))
+export function listFuncionarios() {
+  // O backend usa ativo=true por padrão. Carrega ambos explicitamente.
+  return Promise.all([
+    listAll<FuncionarioApi>('/funcionarios?ativo=true'),
+    listAll<FuncionarioApi>('/funcionarios?ativo=false'),
+  ]).then(lists => [...new Map(lists.flat().map(item => [item.id, item])).values()])
+}

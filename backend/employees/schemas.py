@@ -1,5 +1,6 @@
 from datetime import date, time
 from decimal import Decimal
+from typing import Literal
 
 from ninja import Field, FilterSchema, ModelSchema, Schema
 
@@ -29,12 +30,14 @@ class SetorOut(ModelSchema):
 
 
 class CargoIn(Schema):
+    papel_acesso: Literal['COMUM', 'GERENTE', 'ADMINISTRADOR'] = 'COMUM'
     nome: str
     descricao: str = ""
     setor_id: int
 
 
 class CargoUpdate(Schema):
+    papel_acesso: Literal['COMUM', 'GERENTE', 'ADMINISTRADOR'] | None = None
     nome: str | None = None
     descricao: str | None = None
     setor_id: int | None = None
@@ -45,7 +48,7 @@ class CargoOut(ModelSchema):
 
     class Meta:
         model = Cargo
-        fields = ["id", "nome", "descricao"]
+        fields = ["id", "nome", "descricao", "papel_acesso"]
 
 
 # ---------- Desligamento ----------

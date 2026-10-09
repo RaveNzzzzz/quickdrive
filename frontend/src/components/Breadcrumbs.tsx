@@ -13,11 +13,13 @@ const SECTION_LABELS: Record<string, string> = {
   funil: 'Funil de Clientes',
   financeiro: 'Financeiro',
   funcionarios: 'Funcionários',
+  perfil: 'Meu perfil',
 }
 
 // Nome da tela de detalhe de cada seção (ex.: /patio/12).
 const DETAIL_LABELS: Record<string, string> = {
   patio: 'Ficha do veículo',
+  perfil: 'Trocar senha',
 }
 
 function buildTrail(pathname: string): Crumb[] {
@@ -30,7 +32,7 @@ function buildTrail(pathname: string): Crumb[] {
 
   if (detailId) {
     trail.push({ label: sectionLabel, to: `/${section}` })
-    trail.push({ label: DETAIL_LABELS[section] ?? 'Detalhes' })
+    trail.push({ label: section === 'funcionarios' ? (detailId === 'cargos' ? 'Cargos' : 'Setores') : DETAIL_LABELS[section] ?? 'Detalhes' })
   } else {
     trail.push({ label: sectionLabel })
   }

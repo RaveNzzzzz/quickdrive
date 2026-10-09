@@ -17,6 +17,7 @@ export const tokens = {
   clear() {
     localStorage.removeItem(ACCESS_KEY)
     localStorage.removeItem(REFRESH_KEY)
+    window.dispatchEvent(new Event('auth:logout'))
   },
 }
 
@@ -45,6 +46,17 @@ export function mediaUrl(path: string): string {
   return new URL(path, API_URL).href
 }
 
+function errorMessage(detail: unknown): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map(errorMessage).filter(Boolean).join(' · ')
+  if (detail && typeof detail === 'object') {
+    const fields = detail as Record<string, unknown>
+    if (typeof fields.msg === 'string') return fields.msg
+    return Object.entries(fields).map(([key, value]) => `${key}: ${errorMessage(value)}`).join(' · ')
+  }
+  return ''
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const request = (token: string | null) =>
     fetch(`${API_URL}${path}`, {
@@ -65,7 +77,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.detail ?? `Erro ${res.status}`)
+    if (res.status === 401) tokens.clear()
+    throw new Error(errorMessage(detail.detail) || `Erro ${res.status}`)
   }
 
   return res.status === 204 ? (null as T) : ((await res.json()) as T)

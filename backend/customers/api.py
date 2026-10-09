@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Query, Router
 from ninja.pagination import paginate
-from ninja_jwt.authentication import JWTAuth
+from accounts.authentication import JWTAuth
 
 from people.services import atualizar_pessoa, criar_pessoa, salvar
 

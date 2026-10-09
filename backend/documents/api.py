@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from ninja import File, Form, Query, Router, UploadedFile
 from ninja.pagination import paginate
-from ninja_jwt.authentication import JWTAuth
+from accounts.authentication import JWTAuth, GestaoJWTAuth
 
 from people.services import definir, salvar
 
@@ -100,7 +100,7 @@ def remover_documento_cliente(request, documento_id: int):
 
 
 # =============== Documentos de funcionários ===============
-docs_funcionarios_router = Router(tags=["documentos de funcionários"], auth=JWTAuth())
+docs_funcionarios_router = Router(tags=["documentos de funcionários"], auth=GestaoJWTAuth())
 
 
 def _qs_funcionario():

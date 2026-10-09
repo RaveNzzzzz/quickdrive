@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { kpis, metaMensal } from '../pages/Home/homeData'
 import { navGroups } from './navigation'
 import './Sidebar.css'
+import { useAuth } from '../auth/AuthContext'
 
 const currency = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -12,6 +13,9 @@ const currency = new Intl.NumberFormat('pt-BR', {
 const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date())
 
 export function Sidebar() {
+  const { user } = useAuth()
+  const visibleGroups = navGroups.map(group => ({ ...group, items: group.items.filter(item =>
+    user?.pode_gerenciar || !['/financeiro', '/funcionarios'].includes(item.path)) })).filter(group => group.items.length)
   const vendido = kpis.find((k) => k.label === 'Vendas')?.value ?? 0
   const progress = Math.min(100, Math.round((vendido / metaMensal) * 100))
 
@@ -26,7 +30,7 @@ export function Sidebar() {
       </div>
 
       <nav>
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.title} className="sidebar-group">
             <span className="sidebar-group-title">{group.title}</span>
             {group.items.map(({ label, path, icon: Icon }) => (

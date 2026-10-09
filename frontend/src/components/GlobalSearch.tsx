@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api } from '../api/client'
 import type { Paginated, VeiculoApi, ProdutoApi, CategoriaProdutoApi } from '../types'
-import { employees } from '../pages/Funcionarios/funcionariosData'
+import { listFuncionarios } from '../pages/Funcionarios/funcionariosData'
 
 import { navItems } from './navigation'
+import { useAuth } from '../auth/AuthContext'
 
 type Result = {
   key: string
@@ -36,16 +37,6 @@ function toVehicleResult(v: VeiculoApi): Result {
   }
 }
 
-const staticResults: Result[] = [
-  ...employees.map((e) => ({
-    key: `func-${e.id}`,
-    group: 'Funcionários',
-    title: e.name,
-    subtitle: `${e.position} · ${e.sector}`,
-    path: '/funcionarios',
-  })),
-]
-
 function normalize(text: string) {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
@@ -56,12 +47,15 @@ type GlobalSearchProps = {
 }
 
 export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
+  const { user } = useAuth()
+  const canManage = !!user?.pode_gerenciar
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const [vehicles, setVehicles] = useState<VehiclesState>({ status: 'loading' })
   const [stock, setStock] = useState<VehiclesState>({ status: 'loading' })
+  const [team, setTeam] = useState<VehiclesState>({ status: 'loading' })
 
   useEffect(() => {
     if (open) inputRef.current?.focus()
@@ -84,19 +78,26 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           subtitle: categories.find(c => c.id === p.categoria_id)?.nome ?? '', path: '/estoque',
         })) })
       }).catch(() => { if (!ignore) setStock({ status: 'error' }) })
+    if (canManage) listFuncionarios().then(employees => {
+      if (!ignore) setTeam({ status: 'ok', items: employees.map(e => ({
+        key: `func-${e.id}`, group: 'Funcionários', title: e.pessoa.nome,
+        subtitle: `${e.cargo.nome} · ${e.cargo.setor.nome}`, path: '/funcionarios',
+      })) })
+    }).catch(() => { if (!ignore) setTeam({ status: 'error' }) })
     return () => {
       ignore = true
     }
-  }, [open])
+  }, [open, canManage])
 
   const results = useMemo(() => {
     const q = normalize(query.trim())
-    if (!q) return pageResults
+    const pages = pageResults.filter(r => canManage || !['/financeiro', '/funcionarios'].includes(r.path))
+    if (!q) return pages
     const vehicleResults = vehicles.status === 'ok' ? vehicles.items : []
-    return [...pageResults, ...vehicleResults, ...(stock.status === 'ok' ? stock.items : []), ...staticResults]
+    return [...pages, ...vehicleResults, ...(stock.status === 'ok' ? stock.items : []), ...(canManage && team.status === 'ok' ? team.items : [])]
       .filter((r) => normalize(`${r.title} ${r.subtitle} ${r.group}`).includes(q))
       .slice(0, 8)
-  }, [query, vehicles, stock])
+  }, [query, vehicles, stock, team, canManage])
 
   if (!open) return null
 
@@ -105,6 +106,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     setActive(0)
     setVehicles({ status: 'loading' })
     setStock({ status: 'loading' })
+    setTeam({ status: 'loading' })
     onClose()
   }
 
@@ -165,6 +167,8 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           )}
           {query.trim() && stock.status === 'loading' && <li className="gsearch-empty">Carregando produtos…</li>}
           {query.trim() && stock.status === 'error' && <li className="gsearch-empty">Não foi possível carregar os produtos.</li>}
+          {canManage && query.trim() && team.status === 'loading' && <li className="gsearch-empty">Carregando funcionários…</li>}
+          {canManage && query.trim() && team.status === 'error' && <li className="gsearch-empty">Não foi possível carregar os funcionários.</li>}
           {results.length === 0 && <li className="gsearch-empty">Nada encontrado para "{query}".</li>}
         </ul>
       </div>

@@ -2,7 +2,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from ninja import File, Router, UploadedFile
 from ninja.pagination import paginate
-from ninja_jwt.authentication import JWTAuth
+from accounts.authentication import JWTAuth
 from ninja.errors import HttpError
 from PIL import Image, UnidentifiedImageError
 

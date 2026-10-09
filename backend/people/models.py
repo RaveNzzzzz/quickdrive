@@ -4,7 +4,7 @@ from django.db import models
 from core.models import TimeStampedModel
 
 from .enums import UF, TipoPessoa
-from .validators import apenas_digitos, cep_valido, cnpj_valido, cpf_valido, telefone_valido
+from .validators import apenas_digitos, cep_valido, cnpj_valido, telefone_valido
 
 
 class Pessoa(TimeStampedModel):
@@ -30,8 +30,8 @@ class Pessoa(TimeStampedModel):
 
     def clean(self):
         doc = self.cpf_cnpj or ""
-        if self.tipo_pessoa == TipoPessoa.FISICA and not cpf_valido(doc):
-            raise ValidationError({"cpf_cnpj": "CPF inválido."})
+        if self.tipo_pessoa == TipoPessoa.FISICA and (len(doc) != 11 or not doc.isdigit()):
+            raise ValidationError({"cpf_cnpj": "O CPF deve conter 11 dígitos."})
         if self.tipo_pessoa == TipoPessoa.JURIDICA and not cnpj_valido(doc):
             raise ValidationError({"cpf_cnpj": "CNPJ inválido."})
 

@@ -1,8 +1,17 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, tokens } from '../api/client'
 import type { TokenPair } from '../types'
+import type { CargoApi, PessoaApi } from '../pages/Funcionarios/funcionariosData'
 
-type User = { id: number; username: string; email: string }
+export type User = {
+  pode_gerenciar: boolean
+  id: number
+  username: string
+  email: string
+  first_name: string
+  last_name: string
+  funcionario: { id: number; pessoa: PessoaApi; cargo: CargoApi } | null
+}
 
 type AuthContextValue = {
   user: User | null
@@ -16,6 +25,22 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const clearUser = () => setUser(null)
+    window.addEventListener('auth:logout', clearUser)
+    return () => window.removeEventListener('auth:logout', clearUser)
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const refreshUser = () => {
+      if (!tokens.access) return
+      api<User>('/contas/me').then(data => { if (active) setUser(data) }).catch(() => {})
+    }
+    window.addEventListener('focus', refreshUser)
+    return () => { active = false; window.removeEventListener('focus', refreshUser) }
+  }, [])
 
   useEffect(() => {
     if (!tokens.access) {

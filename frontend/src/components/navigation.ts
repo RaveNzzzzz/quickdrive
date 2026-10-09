@@ -50,6 +50,8 @@ export const navItems = navGroups.flatMap((group) => group.items)
 
 // Pages that exist as routes but are not in the menu
 const hiddenPages: Pick<NavItem, 'label' | 'path' | 'description'>[] = [
+  { label: 'Meu perfil', path: '/perfil', description: 'Informações da sua conta' },
+  { label: 'Trocar senha', path: '/perfil/senha', description: 'Definir uma nova senha' },
   { label: 'Financeiro (versão do Figma)', path: '/financeirofigma', description: 'Versão original, só para comparação' },
 ]
 

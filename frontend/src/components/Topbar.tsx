@@ -17,6 +17,7 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 // Nome da tela de detalhe de cada seção (ex.: /patio/12).
 const DETAIL_LABELS: Record<string, string> = {
   patio: 'Ficha do veículo',
+  perfil: 'Trocar senha',
 }
 
 function capitalize(text: string) {

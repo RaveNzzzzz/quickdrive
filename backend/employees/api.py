@@ -3,7 +3,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from ninja import Query, Router
 from ninja.pagination import paginate
-from ninja_jwt.authentication import JWTAuth
+from accounts.authentication import GestaoJWTAuth
 
 from people.services import atualizar_pessoa, criar_pessoa, definir, salvar
 
@@ -29,7 +29,7 @@ def aplicar(obj, payload):
 
 # =============== Setores ===============
 
-setores_router = Router(tags=["setores"], auth=JWTAuth())
+setores_router = Router(tags=["setores"], auth=GestaoJWTAuth())
 
 
 @setores_router.get("", response=list[SetorOut])
@@ -62,7 +62,7 @@ def remover_setor(request, setor_id: int):
 
 # =============== Cargos ===============
 
-cargos_router = Router(tags=["cargos"], auth=JWTAuth())
+cargos_router = Router(tags=["cargos"], auth=GestaoJWTAuth())
 
 
 @cargos_router.get("", response=list[CargoOut])
@@ -99,7 +99,7 @@ def remover_cargo(request, cargo_id: int):
 
 # =============== Funcionários ===============
 
-funcionarios_router = Router(tags=["funcionarios"], auth=JWTAuth())
+funcionarios_router = Router(tags=["funcionarios"], auth=GestaoJWTAuth())
 
 
 def _queryset():
@@ -149,5 +149,5 @@ def desligar(request, funcionario_id: int, payload: DesligamentoIn):
         funcionario = get_object_or_404(_queryset().select_for_update(of=("self",)), id=funcionario_id)
         if not funcionario.ativo:
             raise ValidationError({"funcionario": "Funcionário já está desligado."})
-        return salvar(Desligamento(funcionario=funcionario, **payload.dict()), "desligamento")
+        salvar(Desligamento(funcionario=funcionario, **payload.dict()), "desligamento")
     return _queryset().get(pk=funcionario_id)

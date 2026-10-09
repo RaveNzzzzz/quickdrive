@@ -15,6 +15,10 @@ class User(AbstractUser):
 
     email = models.EmailField("e-mail", unique=True)
     phone = models.CharField("telefone", max_length=20, blank=True)
+    funcionario = models.OneToOneField(
+        "employees.Funcionario", on_delete=models.PROTECT,
+        related_name="usuario", null=True, blank=True,
+    )
 
     class Meta:
         verbose_name = "usuário"
