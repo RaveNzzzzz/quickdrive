@@ -1,5 +1,10 @@
 const API_URL = import.meta.env.VITE_API_URL as string
 
+/** Monta a URL completa de um caminho da API (usado em <img src>, que não passa pelo api()). */
+export function apiUrl(path: string): string {
+  return `${API_URL}${path}`
+}
+
 const ACCESS_KEY = 'access_token'
 const REFRESH_KEY = 'refresh_token'
 
@@ -17,7 +22,6 @@ export const tokens = {
   clear() {
     localStorage.removeItem(ACCESS_KEY)
     localStorage.removeItem(REFRESH_KEY)
-    window.dispatchEvent(new Event('auth:logout'))
   },
 }
 
@@ -41,29 +45,16 @@ async function refreshAccessToken(): Promise<boolean> {
   return true
 }
 
-// A API devolve arquivos como "/media/..."; eles ficam no servidor do Django, fora do /api.
-export function mediaUrl(path: string): string {
-  return new URL(path, API_URL).href
-}
-
-function errorMessage(detail: unknown): string {
-  if (typeof detail === 'string') return detail
-  if (Array.isArray(detail)) return detail.map(errorMessage).filter(Boolean).join(' · ')
-  if (detail && typeof detail === 'object') {
-    const fields = detail as Record<string, unknown>
-    if (typeof fields.msg === 'string') return fields.msg
-    return Object.entries(fields).map(([key, value]) => `${key}: ${errorMessage(value)}`).join(' · ')
-  }
-  return ''
-}
-
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // Em upload (FormData) NÃO podemos definir o Content-Type: o navegador coloca sozinho,
+  // com o "boundary" que separa os campos. Para JSON, continua application/json.
+  const isFormData = options.body instanceof FormData
+
   const request = (token: string | null) =>
     fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
-        // Com FormData (upload de arquivo) o navegador define o Content-Type sozinho.
-        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
@@ -77,8 +68,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}))
-    if (res.status === 401) tokens.clear()
-    throw new Error(errorMessage(detail.detail) || `Erro ${res.status}`)
+    throw new Error(detail.detail ?? `Erro ${res.status}`)
   }
 
   return res.status === 204 ? (null as T) : ((await res.json()) as T)

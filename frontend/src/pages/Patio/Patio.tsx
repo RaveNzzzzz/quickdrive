@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDownWideNarrow, ChevronRight, Plus, Search, X } from 'lucide-react'
+import { ArrowDownWideNarrow, Car, ChevronRight, Plus, Search, X } from 'lucide-react'
 import { Pagination } from '../../components/Pagination'
-import { api } from '../../api/client'
+import { api, apiUrl } from '../../api/client'
 import type { Paginated, VeiculoApi } from '../../types'
 import {
   lotCapacity,
@@ -11,7 +11,6 @@ import {
   type PatioStatus,
 } from './patioData'
 import { VeiculoFormModal } from './VeiculoFormModal'
-import { VeiculoFoto } from './VeiculoFoto'
 import './Patio.css'
 
 const PAGE_SIZE = 6
@@ -42,7 +41,7 @@ type PatioVehicle = {
   km: number
   daysInLot: number
   price: number
-  image: string | null
+  imageUrl: string | null
 }
 
 // Status que a API devolve -> texto que a tela mostra.
@@ -75,7 +74,7 @@ function toPatioVehicle(v: VeiculoApi): PatioVehicle | null {
     km: v.quilometragem,
     daysInLot,
     price: v.valor,
-    image: v.imagem,
+    imageUrl: v.imagem_url ? apiUrl(v.imagem_url) : null,
   }
 }
 
@@ -122,12 +121,12 @@ export default function Patio() {
     return () => clearTimeout(timer)
   }, [notice])
 
-  function handleCreated(saved: VeiculoApi, aviso?: string) {
+  function handleCreated(saved: VeiculoApi, warning?: string) {
     const item = toPatioVehicle(saved)
     if (item) setPatioVehicles((prev) => [item, ...prev])
     setCreating(false)
     setNotice(
-      aviso ??
+      warning ??
         (item
           ? 'Veículo adicionado ao pátio.'
           : 'Veículo cadastrado. Com esse status, ele não aparece no pátio.'),
@@ -302,13 +301,12 @@ export default function Patio() {
               {vehicle.year} · {vehicle.engine} · {vehicle.bodyType}
             </p>
 
-            <div className="vehicle-photo">
-              <VeiculoFoto
-                key={vehicle.image ?? 'sem-imagem'}
-                src={vehicle.image}
-                alt={vehicle.name}
-                iconSize={32}
-              />
+            <div className={`vehicle-photo ${vehicle.imageUrl ? 'has-image' : ''}`}>
+              {vehicle.imageUrl ? (
+                <img src={vehicle.imageUrl} alt={`Foto de ${vehicle.name}`} loading="lazy" />
+              ) : (
+                <Car size={32} />
+              )}
             </div>
 
             <div className="vehicle-info-row">
