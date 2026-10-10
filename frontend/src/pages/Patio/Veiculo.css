@@ -1,367 +1,371 @@
 /* ---------- Botões de exclusão ---------- */
 
 .btn-danger {
-    background: var(--danger);
-    border: 1px solid var(--danger);
-    color: #fff;
-  }
-  
-  .btn-danger:hover:not(:disabled) {
-    filter: brightness(0.92);
-  }
-  
-  .btn-outline-danger {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--danger);
-  }
-  
-  .btn-outline-danger:hover:not(:disabled) {
-    background: var(--danger-bg);
-  }
-  
-  /* ---------- Formulário (adicionar / editar) ---------- */
-  
-  .vform {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  
-  .vform fieldset {
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-  
-  .vform legend {
-    margin-bottom: 12px;
-    padding: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-h);
-  }
-  
-  .vform-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 16px;
-  }
-  
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.btn-outline-danger {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--danger);
+}
+
+.btn-outline-danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+/* ---------- Formulário (adicionar / editar) ---------- */
+
+.vform {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.vform fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.vform legend {
+  margin-bottom: 12px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.vform-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.vform-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .vform-grid,
   .vform-grid-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
-  
-  @media (max-width: 640px) {
-    .vform-grid,
-    .vform-grid-3 {
-      grid-template-columns: 1fr;
-    }
-  }
-  
-  .vform-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  
-  .vform-field label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-h);
-  }
-  
-  .vform-field input,
-  .vform-field select {
-    height: 38px;
-    padding: 0 12px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface);
-    color: var(--text-h);
-    font: inherit;
-  }
-  
-  .vform-field input:focus-visible,
-  .vform-field select:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-    border-color: var(--accent);
-  }
-  
-  .vform-field input:disabled,
-  .vform-field select:disabled {
-    background: var(--bg);
-    cursor: not-allowed;
-  }
-  
-  .vform-hint {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-  
-  .vform-warning {
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: var(--warning-bg);
-    color: var(--warning);
-    font-size: 13px;
-  }
-  
-  .vform-error {
-    margin: 0 auto 0 0;
-    font-size: 13px;
-    color: var(--danger);
-  }
+}
 
-  .vform-image {
-    display: grid;
-    grid-template-columns: 160px 1fr;
-    gap: 16px;
-    align-items: start;
-  }
+.vform-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
-  @media (max-width: 640px) {
-    .vform-image {
-      grid-template-columns: 1fr;
-    }
-  }
+.vform-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-h);
+}
 
-  .vform-image-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    aspect-ratio: 4 / 3;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg);
-    color: var(--text-muted);
-    font-size: 13px;
-  }
+.vform-field input,
+.vform-field select {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+}
 
-  .vform-image-preview img,
-  .ficha-photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+.vform-field input:focus-visible,
+.vform-field select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
 
-  .vform-file {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-  }
+.vform-field input:disabled,
+.vform-field select:disabled {
+  background: var(--bg);
+  cursor: not-allowed;
+}
 
-  /* Esconde o input nativo só visualmente: ele continua recebendo foco pelo Tab. */
-  .vform-field .vform-file-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    border: 0;
-    opacity: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
+.vform-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
 
-  /* Repete o visual do .btn, porque a regra ".vform-field label" tem mais prioridade. */
-  .vform-field .vform-file-btn {
-    flex-shrink: 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-h);
-  }
+.vform-warning {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 13px;
+}
 
-  .vform-field .vform-file-input:focus-visible + .vform-file-btn {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-    border-color: var(--accent);
-  }
+.vform-error {
+  margin: 0 auto 0 0;
+  font-size: 13px;
+  color: var(--danger);
+}
 
-  .vform-field .vform-file-input:disabled + .vform-file-btn {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+/* ---------- Ficha do veículo ---------- */
 
-  .vform-file-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-  
-  /* ---------- Ficha do veículo ---------- */
-  
-  .ficha-page {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  
-  .ficha-state {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 24px;
-  }
-  
-  .ficha-state a.btn {
-    text-decoration: none;
-  }
-  
-  .ficha-notice {
-    padding: 12px 16px;
-    border-radius: 12px;
-    background: var(--success-bg);
-    color: var(--success);
-    font-weight: 500;
-  }
-  
-  .ficha-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    padding: 20px 24px;
-  }
-  
-  .ficha-header-main {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  
-  .ficha-subtitle {
-    font-size: 14px;
-    color: var(--text);
-  }
-  
-  .ficha-header-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  
-  .ficha-status {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    background: var(--bg);
-    color: var(--text);
-  }
-  
-  .ficha-status-disponivel {
-    background: var(--success-bg);
-    color: var(--success);
-  }
-  
-  .ficha-status-reservado {
-    background: var(--warning-bg);
-    color: var(--warning);
-  }
-  
-  .ficha-status-preparacao {
-    background: var(--accent-bg);
-    color: var(--accent);
-  }
-  
-  .ficha-status-manutencao {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
-  
+.ficha-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ficha-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px;
+}
+
+.ficha-state a.btn {
+  text-decoration: none;
+}
+
+.ficha-notice {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--success-bg);
+  color: var(--success);
+  font-weight: 500;
+}
+
+.ficha-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.ficha-header-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.ficha-subtitle {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.ficha-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ficha-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ficha-status-disponivel {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.ficha-status-reservado {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.ficha-status-preparacao {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.ficha-status-manutencao {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.ficha-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
   .ficha-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
+    grid-template-columns: 1fr;
   }
-  
-  @media (max-width: 960px) {
-    .ficha-layout {
-      grid-template-columns: 1fr;
-    }
-  }
-  
-  .ficha-side {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 20px;
-  }
-  
-  .ficha-photo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    aspect-ratio: 4 / 3;
-    overflow: hidden;
-    border-radius: 12px;
-    background: var(--bg);
-    color: var(--text-muted);
-  }
-  
-  .ficha-side-label {
-    display: block;
-    margin-bottom: 2px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  
-  .ficha-price {
-    font-size: 24px;
-    color: var(--text-h);
-  }
-  
-  .ficha-sections {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  
-  .ficha-section {
-    padding: 20px 24px;
-  }
-  
-  .ficha-section h3 {
-    margin-bottom: 16px;
-    font-size: 15px;
-  }
-  
+}
+
+.ficha-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.ficha-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.ficha-side-label {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ficha-price {
+  font-size: 24px;
+  color: var(--text-h);
+}
+
+.ficha-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ficha-section {
+  padding: 20px 24px;
+}
+
+.ficha-section h3 {
+  margin-bottom: 16px;
+  font-size: 15px;
+}
+
+.ficha-dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 24px;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
   .ficha-dl {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px 24px;
-    margin: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  
-  @media (max-width: 640px) {
-    .ficha-dl {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+}
+
+.ficha-dl dt {
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ficha-dl dd {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+
+/* ---------- Foto do veículo ---------- */
+
+/* Foto no card do pátio e na ficha */
+.vehicle-photo.has-image,
+.ficha-photo.has-image {
+  padding: 0;
+  overflow: hidden;
+}
+
+.vehicle-photo.has-image {
+  height: auto;
+  aspect-ratio: 16 / 10;
+}
+
+.vehicle-photo.has-image img,
+.ficha-photo.has-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Campo de foto dentro do modal */
+.vform-photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vform-photo-preview {
+  display: flex;
+  flex: 0 0 160px;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.vform-photo-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vform-photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vform-photo-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* O <input type="file"> fica escondido; o <label> faz o papel de botão. */
+.vform-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.vform-file:focus-visible + .btn {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .vform-photo {
+    flex-direction: column;
+    align-items: stretch;
   }
-  
-  .ficha-dl dt {
-    margin-bottom: 2px;
-    font-size: 12px;
-    color: var(--text-muted);
+  .vform-photo-preview {
+    flex-basis: auto;
   }
-  
-  .ficha-dl dd {
-    margin: 0;
-    font-weight: 500;
-    color: var(--text-h);
-    overflow-wrap: anywhere;
-  }
+}

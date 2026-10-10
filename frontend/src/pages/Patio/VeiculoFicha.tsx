@@ -1,11 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Pencil, Trash2 } from 'lucide-react'
-import { api } from '../../api/client'
+import { Car, Pencil, Trash2 } from 'lucide-react'
+import { api, apiUrl } from '../../api/client'
 import { Modal } from '../../components/Modal'
 import type { VeiculoApi } from '../../types'
 import { VeiculoFormModal } from './VeiculoFormModal'
-import { VeiculoFoto } from './VeiculoFoto'
 import { statusLabel } from './veiculoStatus'
 import './Veiculo.css'
 
@@ -138,13 +137,12 @@ export default function VeiculoFicha() {
 
       <div className="ficha-layout">
         <aside className="card ficha-side">
-          <div className="ficha-photo">
-            <VeiculoFoto
-              key={veiculo.imagem ?? 'sem-imagem'}
-              src={veiculo.imagem}
-              alt={`${veiculo.marca} ${veiculo.modelo}`}
-              iconSize={48}
-            />
+          <div className={`ficha-photo ${veiculo.imagem_url ? 'has-image' : ''}`}>
+            {veiculo.imagem_url ? (
+              <img src={apiUrl(veiculo.imagem_url)} alt={`Foto de ${veiculo.marca} ${veiculo.modelo}`} />
+            ) : (
+              <Car size={48} aria-hidden="true" />
+            )}
           </div>
           <div>
             <span className="ficha-side-label">Preço de tabela</span>
@@ -202,10 +200,10 @@ export default function VeiculoFicha() {
           mode="edit"
           veiculo={veiculo}
           onClose={() => setEditing(false)}
-          onSaved={(atualizado, aviso) => {
+          onSaved={(atualizado, warning) => {
             setVeiculo(atualizado)
             setEditing(false)
-            setNotice(aviso ?? 'Alterações salvas.')
+            setNotice(warning ?? 'Alterações salvas.')
           }}
         />
       )}

@@ -9,6 +9,9 @@ export type Paginated<T> = {
   count: number
 }
 
+// Cole no seu types.ts.
+// O VeiculoApi substitui o que você já tinha; OpcaoApi e VeiculoPayload são novos.
+
 export type OpcaoApi = { id: number; nome: string }
 
 export type VeiculoApi = {
@@ -38,8 +41,8 @@ export type VeiculoApi = {
   cambio_id: number
   combustivel_id: number
   carroceria_id: number
-  /** Caminho da imagem principal (ex.: "/media/veiculos/foto.jpg"), ou null se não houver. */
-  imagem: string | null
+  /** Caminho da foto principal (ex.: /veiculos/3/imagem?v=123) ou null se não tiver. */
+  imagem_url: string | null
 }
 
 export type VeiculoPayload = {

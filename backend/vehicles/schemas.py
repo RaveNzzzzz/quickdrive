@@ -112,13 +112,21 @@ class VeiculoOut(Schema):
     cambio_id: int
     combustivel_id: int
     carroceria_id: int
-    imagem: str | None = None
+    # Caminho relativo à raiz da API (o front junta com VITE_API_URL). None = sem foto.
+    imagem_url: str | None = None
 
     @staticmethod
-    def resolve_imagem(obj):
-        # Percorre .all() (e não .filter) para aproveitar o prefetch_related da listagem.
-        principal = next((img for img in obj.imagens.all() if img.principal), None)
-        return principal.imagem.url if principal else None
+    def resolve_imagem_url(obj):
+        # "imagem_principal" é preenchido pelo Prefetch da listagem (sem carregar os bytes).
+        # Nas demais rotas (get/create/update) ele não existe, então buscamos aqui.
+        if hasattr(obj, "imagem_principal"):
+            principal = obj.imagem_principal[0] if obj.imagem_principal else None
+        else:
+            principal = obj.imagens.filter(principal=True).defer("arquivo").first()
+        if principal is None:
+            return None
+        versao = int(principal.atualizado_em.timestamp() * 1000)  # muda ao trocar a foto -> navegador recarrega
+        return f"/veiculos/{obj.id}/imagem?v={versao}"
 
     @staticmethod
     def resolve_marca(obj):
