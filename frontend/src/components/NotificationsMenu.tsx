@@ -1,15 +1,18 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Bell, CheckCheck } from 'lucide-react'
-import { alerts } from '../pages/Home/homeData'
+import { alertaKey, alertaLink, useAlertas } from '../hooks/useAlertas'
 import { useDismiss } from './useDismiss'
 
 export function NotificationsMenu() {
   const [open, setOpen] = useState(false)
-  const [readIds, setReadIds] = useState<number[]>([])
+  const [readKeys, setReadKeys] = useState<string[]>([])
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(ref, open, () => setOpen(false))
 
-  const unread = alerts.filter((a) => !readIds.includes(a.id))
+  const { alertas, error } = useAlertas()
+  const lista = alertas ?? []
+  const unread = lista.filter((a) => !readKeys.includes(alertaKey(a)))
 
   return (
     <div className="topbar-menu-wrap" ref={ref}>
@@ -29,7 +32,11 @@ export function NotificationsMenu() {
           <div className="topbar-dropdown-header">
             <strong>Notificações</strong>
             {unread.length > 0 && (
-              <button type="button" className="topbar-link" onClick={() => setReadIds(alerts.map((a) => a.id))}>
+              <button
+                type="button"
+                className="topbar-link"
+                onClick={() => setReadKeys(lista.map(alertaKey))}
+              >
                 <CheckCheck size={14} />
                 Marcar todas como lidas
               </button>
@@ -37,18 +44,38 @@ export function NotificationsMenu() {
           </div>
 
           <ul>
-            {alerts.map((alert) => (
-              <li key={alert.id} className={readIds.includes(alert.id) ? 'read' : ''}>
-                <span className={`alert-dot alert-dot-${alert.level}`} />
-                <div>
-                  <strong>{alert.title}</strong>
-                  <p>{alert.subtitle}</p>
-                </div>
-              </li>
-            ))}
+            {lista.map((alerta) => {
+              const link = alertaLink(alerta)
+              const conteudo = (
+                <>
+                  <span className={`alert-dot alert-dot-${alerta.nivel}`} />
+                  <div>
+                    <strong>{alerta.titulo}</strong>
+                    <p>{alerta.subtitulo}</p>
+                  </div>
+                </>
+              )
+              return (
+                <li key={alertaKey(alerta)} className={readKeys.includes(alertaKey(alerta)) ? 'read' : ''}>
+                  {link ? (
+                    <Link to={link} className="topbar-notification-link" onClick={() => setOpen(false)}>
+                      {conteudo}
+                    </Link>
+                  ) : (
+                    conteudo
+                  )}
+                </li>
+              )
+            })}
           </ul>
 
-          {unread.length === 0 && <p className="topbar-dropdown-empty">Tudo em dia por aqui.</p>}
+          {error ? (
+            <p className="topbar-dropdown-empty">Não foi possível carregar as notificações.</p>
+          ) : alertas === null ? (
+            <p className="topbar-dropdown-empty">Carregando…</p>
+          ) : (
+            unread.length === 0 && <p className="topbar-dropdown-empty">Tudo em dia por aqui.</p>
+          )}
         </div>
       )}
     </div>

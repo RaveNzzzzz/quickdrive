@@ -39,39 +39,6 @@ export const chartData: ChartPoint[] = [
   { month: 'Out', compras: 65, vendas: 90 },
 ]
 
-export type PatioVehicle = {
-  id: number
-  name: string
-}
-
-export const patioVehicles: PatioVehicle[] = [
-  { id: 1, name: 'Audi A5 S' },
-  { id: 2, name: 'Porsche 718 Cayman S' },
-  { id: 3, name: 'Porsche 718 Cayman S' },
-]
-
-export type Alert = {
-  id: number
-  level: 'danger' | 'warning'
-  title: string
-  subtitle: string
-}
-
-export const alerts: Alert[] = [
-  {
-    id: 1,
-    level: 'danger',
-    title: '3 veículos há +60 dias no pátio',
-    subtitle: 'Considere revisar o preço',
-  },
-  {
-    id: 2,
-    level: 'warning',
-    title: 'Manutenção pendente',
-    subtitle: 'Porsche 718 Cayman S · placa QDX-1122',
-  },
-]
-
 export type Transaction = {
   id: number
   client: string

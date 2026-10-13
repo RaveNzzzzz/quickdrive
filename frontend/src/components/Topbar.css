@@ -228,6 +228,14 @@ kbd {
   background: var(--bg);
 }
 
+.topbar-notification-link {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+}
+
 .topbar-notifications li.read {
   opacity: 0.5;
 }
