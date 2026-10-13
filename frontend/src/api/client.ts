@@ -45,6 +45,18 @@ async function refreshAccessToken(): Promise<boolean> {
   return true
 }
 
+// Erros de validação (422) chegam como lista: [{ msg: 'Value error, ...' }, ...].
+function errorMessage(detail: unknown): string | undefined {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((item) => (typeof item?.msg === 'string' ? item.msg.replace(/^Value error, /, '') : ''))
+      .filter(Boolean)
+    if (msgs.length > 0) return msgs.join(' ')
+  }
+  return undefined
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Em upload (FormData) NÃO podemos definir o Content-Type: o navegador coloca sozinho,
   // com o "boundary" que separa os campos. Para JSON, continua application/json.
@@ -68,7 +80,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.detail ?? `Erro ${res.status}`)
+    throw new Error(errorMessage(detail.detail) ?? `Erro ${res.status}`)
   }
 
   return res.status === 204 ? (null as T) : ((await res.json()) as T)

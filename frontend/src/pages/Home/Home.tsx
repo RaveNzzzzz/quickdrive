@@ -8,9 +8,120 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Car } from 'lucide-react'
-import { alerts, caixa, chartData, kpis, patioVehicles, transactions } from './homeData'
+import { api, apiUrl } from '../../api/client'
+import type { Paginated, VeiculoApi } from '../../types'
+import { alertaKey, alertaLink, useAlertas } from '../../hooks/useAlertas'
+import { caixa, chartData, kpis, transactions } from './homeData'
 import './Home.css'
+
+function AlertasCard() {
+  const { alertas, error } = useAlertas()
+
+  return (
+    <div className="card alerts-card">
+      <h3>Alertas</h3>
+      {error ? (
+        <p className="patio-empty" role="alert">
+          Não foi possível carregar os alertas: {error}
+        </p>
+      ) : alertas === null ? (
+        <p className="patio-empty">Carregando…</p>
+      ) : alertas.length === 0 ? (
+        <p className="patio-empty">Nenhum alerta no momento. Tudo em dia!</p>
+      ) : (
+        <div className="alerts-list">
+          {alertas.map((alerta) => {
+            const link = alertaLink(alerta)
+            const conteudo = (
+              <>
+                <span className={`alert-dot alert-dot-${alerta.nivel}`} />
+                <div>
+                  <strong>{alerta.titulo}</strong>
+                  <p>{alerta.subtitulo}</p>
+                </div>
+              </>
+            )
+            return link ? (
+              <Link key={alertaKey(alerta)} to={link} className="alert-item alert-item-link">
+                {conteudo}
+              </Link>
+            ) : (
+              <div key={alertaKey(alerta)} className="alert-item">
+                {conteudo}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const PATIO_RECENTES = 3
+
+// Os veículos que entraram por último no pátio (a API já devolve do mais recente para o mais antigo).
+function PatioRecentes() {
+  const [veiculos, setVeiculos] = useState<VeiculoApi[] | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    api<Paginated<VeiculoApi>>(`/veiculos?no_patio=true&limit=${PATIO_RECENTES}`)
+      .then((data) => {
+        if (active) setVeiculos(data.items)
+      })
+      .catch((err: Error) => {
+        if (active) setError(err.message)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return (
+    <div className="card patio-card">
+      <div className="patio-card-header">
+        <h3>Pátio</h3>
+        <Link to="/patio" className="patio-card-link">
+          Ver todos
+        </Link>
+      </div>
+
+      {error ? (
+        <p className="patio-empty" role="alert">
+          Não foi possível carregar o pátio: {error}
+        </p>
+      ) : veiculos === null ? (
+        <div className="patio-list" aria-busy="true" aria-label="Carregando veículos">
+          {Array.from({ length: PATIO_RECENTES }, (_, i) => (
+            <div key={i} className="patio-item patio-item-loading" />
+          ))}
+        </div>
+      ) : veiculos.length === 0 ? (
+        <p className="patio-empty">Nenhum veículo no pátio.</p>
+      ) : (
+        <div className="patio-list">
+          {veiculos.map((v) => {
+            const nome = `${v.marca} ${v.modelo}`
+            return (
+              <Link key={v.id} to={`/patio/${v.id}`} className="patio-item" title={`${nome} ${v.versao}`}>
+                {v.imagem_url ? (
+                  <img src={apiUrl(v.imagem_url)} alt="" loading="lazy" />
+                ) : (
+                  <Car size={28} aria-hidden="true" />
+                )}
+                <span>{nome}</span>
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const currency = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -160,32 +271,9 @@ export default function Home() {
       </div>
 
       <aside className="dashboard-side">
-        <div className="card patio-card">
-          <h3>Pátio</h3>
-          <div className="patio-list">
-            {patioVehicles.map((vehicle) => (
-              <div key={vehicle.id} className="patio-item">
-                <Car size={28} />
-                <span>{vehicle.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <PatioRecentes />
 
-        <div className="card alerts-card">
-          <h3>Alertas</h3>
-          <div className="alerts-list">
-            {alerts.map((alert) => (
-              <div key={alert.id} className="alert-item">
-                <span className={`alert-dot alert-dot-${alert.level}`} />
-                <div>
-                  <strong>{alert.title}</strong>
-                  <p>{alert.subtitle}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AlertasCard />
       </aside>
     </div>
   )

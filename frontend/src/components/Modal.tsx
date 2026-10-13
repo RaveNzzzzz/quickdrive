@@ -39,6 +39,10 @@ export function Modal({ title, onClose, children, footer, size = 'md', busy = fa
     if (panel && !panel.contains(document.activeElement)) panel.focus()
 
     function handleKeyDown(event: KeyboardEvent) {
+      // Com um pop-up aberto sobre outro, só o de cima responde ao teclado.
+      const panels = document.querySelectorAll('.modal-panel')
+      if (panels[panels.length - 1] !== panel) return
+
       if (event.key === 'Escape') {
         if (!busyRef.current) onCloseRef.current()
         return

@@ -70,3 +70,12 @@ export type VeiculoPayload = {
 export type CategoriaProdutoApi = OpcaoApi
 export type ProdutoApi = { id: number; nome: string; especificacao: string; categoria_id: number }
 export type LoteApi = { id: number; quantidade: number; data_validade: string | null; numero_lote: string; produto_id: number }
+
+export type AlertaApi = {
+  tipo: 'parados' | 'manutencao' | 'revisao'
+  nivel: 'danger' | 'warning'
+  titulo: string
+  subtitulo: string
+  /** Preenchido quando o alerta é de um veículo só. */
+  veiculo_id: number | null
+}
