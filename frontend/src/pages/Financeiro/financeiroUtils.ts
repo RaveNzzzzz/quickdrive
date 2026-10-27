@@ -9,6 +9,8 @@ export type Conta = {
   kind: ContaKind
   /** Id da receita (conta a receber) ou da despesa (conta a pagar). */
   parentId: number
+  /** Venda (conta a receber) ou compra (conta a pagar) que gerou a conta, se houver. */
+  originId: number | null
   description: string
   note: string
   category: string
@@ -24,6 +26,7 @@ export function fromContaReceber(conta: ContaReceberApi): Conta {
     id: conta.id,
     kind: 'receber',
     parentId: conta.receita_id,
+    originId: conta.venda_id,
     description: conta.descricao,
     note: conta.receita,
     category: conta.categoria,
@@ -39,6 +42,7 @@ export function fromContaPagar(conta: ContaPagarApi): Conta {
     id: conta.id,
     kind: 'pagar',
     parentId: conta.despesa_id,
+    originId: conta.compra_id,
     description: conta.descricao,
     note: conta.despesa,
     category: conta.categoria,

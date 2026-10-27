@@ -193,3 +193,18 @@
   color: var(--text-muted) !important;
   padding: 40px 0 !important;
 }
+
+.cl-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.cl-error-text {
+  color: var(--danger);
+}

@@ -1,5 +1,10 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { kpis, metaMensal } from '../pages/Home/homeData'
+import { api } from '../api/client'
+import { useVersaoVendas } from '../hooks/vendasAlteradas'
+import { todayIso } from '../pages/Financeiro/financeiroUtils'
+import { metaFaturamento } from '../pages/Vendas/metas'
+import type { Paginated, VendaApi } from '../types'
 import { navGroups } from './navigation'
 import './Sidebar.css'
 import { useAuth } from '../auth/AuthContext'
@@ -16,8 +21,30 @@ export function Sidebar() {
   const { user } = useAuth()
   const visibleGroups = navGroups.map(group => ({ ...group, items: group.items.filter(item =>
     user?.pode_gerenciar || !['/financeiro', '/funcionarios'].includes(item.path)) })).filter(group => group.items.length)
-  const vendido = kpis.find((k) => k.label === 'Vendas')?.value ?? 0
-  const progress = Math.min(100, Math.round((vendido / metaMensal) * 100))
+  // null enquanto carrega
+  const [vendido, setVendido] = useState<number | null>(null)
+  const [error, setError] = useState(false)
+  const versaoVendas = useVersaoVendas()
+
+  useEffect(() => {
+    let active = true
+    const mes = todayIso().slice(0, 7) // "AAAA-MM"
+    api<Paginated<VendaApi>>('/vendas?status=pago&limit=1000')
+      .then((data) => {
+        if (!active) return
+        const doMes = data.items.filter((v) => v.data_venda.startsWith(mes))
+        setVendido(doMes.reduce((total, v) => total + v.valor_venda, 0))
+        setError(false)
+      })
+      .catch(() => {
+        if (active) setError(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [versaoVendas])
+
+  const progress = Math.min(100, Math.round(((vendido ?? 0) / metaFaturamento) * 100))
 
   return (
     <aside className="sidebar">
@@ -57,7 +84,11 @@ export function Sidebar() {
           <div style={{ width: `${progress}%` }} />
         </div>
         <p>
-          {currency.format(vendido)} de {currency.format(metaMensal)}
+          {error
+            ? 'Não foi possível carregar as vendas'
+            : vendido === null
+              ? 'Carregando…'
+              : `${currency.format(vendido)} de ${currency.format(metaFaturamento)}`}
         </p>
       </div>
     </aside>

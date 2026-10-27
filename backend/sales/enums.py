@@ -27,3 +27,31 @@ class StatusCompra(models.TextChoices):
 class ItemCompra(models.TextChoices):
     VEICULO = "veiculo", "Veículo"
     PRODUTO = "produto", "Produto"
+
+
+class EtapaNegociacao(models.TextChoices):
+    INTERESSE = "interesse", "Interesse"
+    TEST_DRIVE = "test_drive", "Test drive"
+    NEGOCIACAO = "negociacao", "Negociação"
+    CREDITO = "credito", "Crédito"
+    VENDIDO = "vendido", "Vendido"
+    PERDIDO = "perdido", "Perdido"
+
+
+class OrigemNegociacao(models.TextChoices):
+    INSTAGRAM = "instagram", "Instagram"
+    INDICACAO = "indicacao", "Indicação"
+    SITE = "site", "Site próprio"
+    LOJA = "loja", "Loja física"
+    OLX = "olx", "Portal OLX"
+    WEBMOTORS = "webmotors", "Portal Webmotors"
+    OUTRO = "outro", "Outro"
+
+
+class MotivoPerda(models.TextChoices):
+    PRECO = "preco", "Preço"
+    CREDITO = "credito", "Crédito negado"
+    CONCORRENTE = "concorrente", "Comprou em outro lugar"
+    DESISTIU = "desistiu", "Desistiu da compra"
+    SEM_RETORNO = "sem_retorno", "Sem retorno"
+    OUTRO = "outro", "Outro"

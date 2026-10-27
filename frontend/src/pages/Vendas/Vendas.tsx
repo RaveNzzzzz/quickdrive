@@ -26,15 +26,13 @@ import {
   initials,
   percentChange,
 } from '../../utils/format'
+import { avisarVendasAlteradas } from '../../hooks/vendasAlteradas'
 import { formaPagamentoLabel } from './formasPagamento'
+import { metaFaturamento, metaVendasFechadas } from './metas'
 import { VendaFormModal } from './VendaFormModal'
 import './Vendas.css'
 
 const PAGE_SIZE = 8
-
-// As metas ainda não ficam no banco.
-const metaFaturamento = 450000
-const metaVendasFechadas = 9
 
 type VendaStatus = 'Pago' | 'Pendente' | 'Cancelada'
 
@@ -234,6 +232,7 @@ export default function Vendas() {
       prev.some((v) => v.id === item.id) ? prev.map((v) => (v.id === item.id ? item : v)) : [item, ...prev],
     )
     setEditor(null)
+    avisarVendasAlteradas()
   }
 
   async function remove() {
@@ -244,6 +243,7 @@ export default function Vendas() {
       await api<null>(`/vendas/${deletion.id}`, { method: 'DELETE' })
       setVendas((prev) => prev.filter((v) => v.id !== deletion.id))
       setDeletion(null)
+      avisarVendasAlteradas()
     } catch (err) {
       setDeleteError((err as Error).message)
     } finally {

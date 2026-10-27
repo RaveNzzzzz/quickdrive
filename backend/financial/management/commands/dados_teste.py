@@ -17,7 +17,8 @@ from customers.models import Cliente
 from employees.models import Cargo, Funcionario, Setor
 from financial.models import ContaPagar, ContaReceber, Despesa, Receita
 from people.models import Endereco, Pessoa
-from sales.models import Compra, Venda
+from sales.models import Compra, Negociacao, NegociacaoEvento, Venda
+from sales.services import sincronizar_veiculo
 from stock.models import CategoriaProduto, Lote, Produto
 from vehicles.enums import StatusVeiculo
 from vehicles.models import Cambio, Carroceria, Combustivel, Marca, Veiculo
@@ -39,6 +40,19 @@ VEICULOS = [
     ("Saveiro", "Vermelho", 78000, (8, "cancelada", "boleto")),
     ("Jetta", "Branco", 165000, (70, "pago", "financiamento")),
     ("Amarok", "Preto", 240000, None),
+    ("Taos", "Cinza", 189000, None),
+    ("Fox", "Prata", 45000, None),
+]
+
+# Funil: nome, telefone, etapa, dias na etapa, origem, modelo do veículo, valor da proposta,
+# próximo passo, próximo contato (dias a partir de hoje) e motivo da perda.
+NEGOCIACOES = [
+    ("Fernanda Rocha", "11988887777", "interesse", 1, "instagram", "Taos", None, "Enviar fotos do Taos", 0, ""),
+    ("Gustavo Pires", "11977776666", "interesse", 10, "olx", "Fox", None, "Ligar de novo", -3, ""),
+    ("Helena Duarte", "11966665555", "test_drive", 2, "site", "Taos", 185000, "Test drive sábado 10h", 2, ""),
+    ("Igor Matos", "", "negociacao", 4, "indicacao", "Amarok", 235000, "Contraproposta R$ 230 mil", 1, ""),
+    ("Joana Freitas", "11955554444", "credito", 6, "loja", "Saveiro", 76000, "Aguardando o banco", -1, ""),
+    ("Lucas Prado", "11944443333", "perdido", 12, "webmotors", "Fox", 43000, "", None, "preco"),
 ]
 
 # descrição, categoria, valor, [(dias a partir de hoje, pago?)]
@@ -97,6 +111,7 @@ class Command(BaseCommand):
 
     def limpar(self):
         # A ordem importa: primeiro quem aponta para os outros (as FKs são PROTECT).
+        Negociacao.objects.filter(funcionario__pessoa__email__endswith=EMAIL).delete()  # o histórico vai junto
         ContaReceber.objects.filter(receita__descricao__startswith=TAG).delete()
         ContaPagar.objects.filter(despesa__descricao__startswith=TAG).delete()
         Receita.objects.filter(descricao__startswith=TAG).delete()
@@ -217,8 +232,45 @@ class Command(BaseCommand):
             data_vencimento=dia(8), status="pendente",
         )
 
+        # Funil: negociações em todas as etapas. As vendidas apontam para as vendas pagas mais recentes.
+        agora = timezone.now()
+        veiculos = {v.modelo: v for v in Veiculo.objects.filter(chassi__startswith=CHASSI)}
+        ordem_por_etapa: dict[str, int] = {}
+
+        def negociacao(etapa: str, dias: int, **campos) -> Negociacao:
+            ordem_por_etapa[etapa] = ordem_por_etapa.get(etapa, -1) + 1
+            nova = Negociacao.objects.create(
+                etapa=etapa, etapa_desde=agora - timedelta(days=dias), ordem=ordem_por_etapa[etapa], **campos
+            )
+            NegociacaoEvento.objects.create(negociacao=nova, etapa_nova=etapa, funcionario=nova.funcionario)
+            return nova
+
+        for i, (nome, telefone, etapa, dias, origem, modelo, valor, passo, contato, motivo) in enumerate(NEGOCIACOES):
+            negociacao(
+                etapa, dias, nome_interessado=f"{TAG} {nome}", telefone=telefone, origem=origem,
+                veiculo=veiculos[modelo], funcionario=vendedores[i % len(vendedores)],
+                valor_proposta=Decimal(valor) if valor else None, proximo_passo=passo,
+                proximo_contato=dia(contato) if contato is not None else None, motivo_perda=motivo,
+            )
+        # Um cliente já cadastrado voltando para comprar outro carro (aparece "Em negociação" na tela de Clientes).
+        negociacao(
+            "test_drive", 3, nome_interessado=clientes[0].pessoa.nome, cliente=clientes[0], telefone=clientes[0].pessoa.telefone,
+            veiculo=veiculos["Fox"], funcionario=vendedores[0], origem="indicacao",
+            proximo_passo="Retorno sobre o test drive", proximo_contato=dia(1),
+        )
+        pagas = Venda.objects.filter(veiculo__chassi__startswith=CHASSI, status="pago").order_by("-data_venda")[:2]
+        for venda in pagas:
+            negociacao(
+                "vendido", (hoje - venda.data_venda).days, nome_interessado=venda.cliente.pessoa.nome,
+                cliente=venda.cliente, veiculo=venda.veiculo, funcionario=venda.funcionario, venda=venda,
+                valor_proposta=venda.valor_venda, origem="loja",
+            )
+        for veiculo in veiculos.values():
+            sincronizar_veiculo(veiculo.id)  # Amarok e Saveiro ficam "reservados" (Negociação/Crédito)
+
         self.stdout.write(self.style.SUCCESS(
-            f"Criados: {Venda.objects.filter(veiculo__chassi__startswith=CHASSI).count()} vendas, "
+            f"Criados: {Negociacao.objects.filter(funcionario__pessoa__email__endswith=EMAIL).count()} negociações, "
+            f"{Venda.objects.filter(veiculo__chassi__startswith=CHASSI).count()} vendas, "
             f"{Compra.objects.filter(funcionario__pessoa__email__endswith=EMAIL).count()} compras, "
             f"{ContaReceber.objects.filter(receita__descricao__startswith=TAG).count()} contas a receber e "
             f"{ContaPagar.objects.filter(despesa__descricao__startswith=TAG).count()} contas a pagar."

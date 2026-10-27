@@ -46,12 +46,19 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 // Erros de validação (422) chegam como lista: [{ msg: 'Value error, ...' }, ...].
+// As regras dos models (ex.: e-mail ou CPF repetido) chegam como objeto: { 'pessoa.email': ['...'] }.
 function errorMessage(detail: unknown): string | undefined {
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) {
     const msgs = detail
       .map((item) => (typeof item?.msg === 'string' ? item.msg.replace(/^Value error, /, '') : ''))
       .filter(Boolean)
+    if (msgs.length > 0) return msgs.join(' ')
+  }
+  if (detail && typeof detail === 'object') {
+    const msgs = Object.values(detail as Record<string, unknown>)
+      .flat()
+      .filter((msg): msg is string => typeof msg === 'string')
     if (msgs.length > 0) return msgs.join(' ')
   }
   return undefined

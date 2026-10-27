@@ -72,7 +72,8 @@ export type ProdutoApi = { id: number; nome: string; especificacao: string; cate
 export type LoteApi = { id: number; quantidade: number; data_validade: string | null; numero_lote: string; produto_id: number }
 
 export type AlertaApi = {
-  tipo: 'parados' | 'manutencao' | 'revisao'
+  /** Os três primeiros vêm do pátio (/veiculos/alertas); "contato" e "funil_parado", do funil (/negociacoes/alertas). */
+  tipo: 'parados' | 'manutencao' | 'revisao' | 'contato' | 'funil_parado'
   nivel: 'danger' | 'warning'
   titulo: string
   subtitulo: string
@@ -135,4 +136,96 @@ export type LancamentoApi = {
   categoria: string
   valor: number
   data: string
+}
+
+export type CompraApi = {
+  id: number
+  funcionario_id: number
+  funcionario: string
+  cliente_id: number | null
+  cliente: string | null
+  item_compra: 'veiculo' | 'produto'
+  veiculo_id: number | null
+  veiculo: string | null
+  lote_id: number | null
+  lote: string | null
+  valor_compra: number
+  forma_pagamento: string
+  status: 'pendente' | 'concluida' | 'cancelada'
+  data_compra: string
+}
+
+// --- Funil de vendas (backend: sales/schemas.py, Negociacao*) ---
+
+export type EtapaApi = 'interesse' | 'test_drive' | 'negociacao' | 'credito' | 'vendido' | 'perdido'
+
+export type NegociacaoApi = {
+  id: number
+  /** Nome do cliente cadastrado ou, enquanto não houver, do interessado. */
+  nome: string
+  nome_interessado: string
+  telefone: string
+  cliente_id: number | null
+  veiculo_id: number | null
+  /** "Marca Modelo" */
+  veiculo: string | null
+  veiculo_placa: string | null
+  veiculo_valor: number | null
+  funcionario_id: number
+  funcionario: string
+  venda_id: number | null
+  etapa: EtapaApi
+  /** Data e hora em que entrou na etapa atual (ISO). */
+  etapa_desde: string
+  ordem: number
+  origem: string
+  valor_proposta: number | null
+  proximo_passo: string
+  proximo_contato: string | null
+  motivo_perda: string
+  created_at: string
+}
+
+export type NegociacaoEventoApi = {
+  id: number
+  etapa_anterior: EtapaApi | ''
+  etapa_nova: EtapaApi
+  funcionario: string | null
+  data: string
+}
+
+// --- Clientes (backend: customers/schemas.py ClienteOut + people/schemas.py PessoaOut) ---
+
+export type EnderecoApi = {
+  id: number
+  rua: string
+  numero: string
+  complemento: string
+  bairro: string
+  cidade: string
+  uf: string
+  cep: string
+}
+
+export type ClienteApi = {
+  id: number
+  codigo: string
+  ativo: boolean
+  ultima_interacao: string | null
+  created_at: string
+  pessoa: {
+    id: number
+    nome: string
+    email: string
+    telefone: string
+    data_nascimento: string | null
+    cpf_cnpj: string
+    tipo_pessoa: 'FISICA' | 'JURIDICA'
+    endereco: EnderecoApi | null
+  }
+  /** Calculados a partir das vendas (não canceladas) e do funil. */
+  veiculos_comprados: number
+  ltv: number
+  em_negociacao: boolean
+  responsavel: string | null
 }

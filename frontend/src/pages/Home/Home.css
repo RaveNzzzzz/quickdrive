@@ -277,3 +277,20 @@ a.patio-item:hover img {
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+.home-error {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.home-empty {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* "Ver vendas" é um link, mas mantém a aparência do botão. */
+a.chart-more {
+  text-decoration: none;
+}

@@ -68,3 +68,20 @@ export function downloadCsv(filename: string, header: string[], rows: (string | 
   link.click()
   URL.revokeObjectURL(url)
 }
+
+/** Deixa só os números (o backend guarda telefone, CPF, CNPJ e CEP assim). */
+export const soDigitos = (texto: string) => texto.replace(/\D/g, '')
+
+/** "11987654321" -> "(11) 98765-4321" */
+export function formatarTelefone(telefone: string) {
+  if (telefone.length === 11) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 7)}-${telefone.slice(7)}`
+  if (telefone.length === 10) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 6)}-${telefone.slice(6)}`
+  return telefone
+}
+
+/** CPF (11 dígitos) ou CNPJ (14 dígitos) com pontos, barra e traço. */
+export function formatarDocumento(documento: string) {
+  if (documento.length === 11) return documento.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+  if (documento.length === 14) return documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+  return documento
+}
