@@ -136,3 +136,20 @@ export type LancamentoApi = {
   valor: number
   data: string
 }
+
+export type CompraApi = {
+  id: number
+  funcionario_id: number
+  funcionario: string
+  cliente_id: number | null
+  cliente: string | null
+  item_compra: 'veiculo' | 'produto'
+  veiculo_id: number | null
+  veiculo: string | null
+  lote_id: number | null
+  lote: string | null
+  valor_compra: number
+  forma_pagamento: string
+  status: 'pendente' | 'concluida' | 'cancelada'
+  data_compra: string
+}

@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { api } from '../../api/client'
 import { Modal } from '../../components/Modal'
-import type { ContaPagarApi, ContaReceberApi, LancamentoApi, Paginated } from '../../types'
+import type { CompraApi, ContaPagarApi, ContaReceberApi, LancamentoApi, Paginated, VendaApi } from '../../types'
 import { contaPath, fromContaPagar, fromContaReceber, todayIso, type Conta, type ContaKind } from './financeiroUtils'
 
 // Valor do <select> que significa "criar uma receita/despesa nova junto com a conta".
@@ -18,6 +18,8 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
   const formId = useId()
   const [receitas, setReceitas] = useState<LancamentoApi[]>([])
   const [despesas, setDespesas] = useState<LancamentoApi[]>([])
+  const [vendas, setVendas] = useState<VendaApi[]>([])
+  const [compras, setCompras] = useState<CompraApi[]>([])
   const [loading, setLoading] = useState(true)
 
   const [kind, setKind] = useState<ContaKind>(conta?.kind ?? 'pagar')
@@ -25,6 +27,8 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
   const [amount, setAmount] = useState(conta ? String(conta.amount) : '')
   const [dueDate, setDueDate] = useState(conta?.dueDate ?? todayIso())
   const [parentId, setParentId] = useState(conta ? String(conta.parentId) : '')
+  // '' = conta sem venda/compra ligada
+  const [originId, setOriginId] = useState(conta?.originId ? String(conta.originId) : '')
   const [newParentName, setNewParentName] = useState('')
   const [newParentCategory, setNewParentCategory] = useState('')
   const [paid, setPaid] = useState(!!conta?.paidAt)
@@ -37,11 +41,15 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
     Promise.all([
       api<Paginated<LancamentoApi>>('/financeiro/receitas?limit=1000'),
       api<Paginated<LancamentoApi>>('/financeiro/despesas?limit=1000'),
+      api<Paginated<VendaApi>>('/vendas?limit=1000'),
+      api<Paginated<CompraApi>>('/compras?limit=1000'),
     ])
-      .then(([r, d]) => {
+      .then(([r, d, v, c]) => {
         if (!active) return
         setReceitas(r.items)
         setDespesas(d.items)
+        setVendas(v.items)
+        setCompras(c.items)
       })
       .catch((err: Error) => {
         if (active) setError(`Não foi possível carregar receitas e despesas: ${err.message}`)
@@ -61,7 +69,9 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
 
   function changeKind(next: ContaKind) {
     setKind(next)
-    setParentId('') // a receita/despesa escolhida não vale para o outro tipo
+    // A receita/despesa e a venda/compra escolhidas não valem para o outro tipo.
+    setParentId('')
+    setOriginId('')
   }
 
   async function submit(event: FormEvent) {
@@ -98,11 +108,13 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
         kind === 'receber'
           ? {
               receita_id: lancamentoId,
+              venda_id: originId ? Number(originId) : null,
               status: paid ? 'recebido' : 'pendente',
               data_recebimento: paid ? paidAt : null,
             }
           : {
               despesa_id: lancamentoId,
+              compra_id: originId ? Number(originId) : null,
               status: paid ? 'pago' : 'pendente',
               data_pagamento: paid ? paidAt : null,
             }
@@ -234,6 +246,22 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
               </div>
             </div>
           )}
+
+          <label htmlFor={`${formId}-origin`}>{kind === 'receber' ? 'Venda (opcional)' : 'Compra (opcional)'}</label>
+          <select id={`${formId}-origin`} value={originId} onChange={(e) => setOriginId(e.target.value)}>
+            <option value="">{kind === 'receber' ? 'Nenhuma venda' : 'Nenhuma compra'}</option>
+            {kind === 'receber'
+              ? vendas.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.veiculo} ({v.placa}) · {v.cliente}
+                  </option>
+                ))
+              : compras.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.veiculo ?? c.lote ?? `Compra ${c.id}`} · {c.data_compra.split('-').reverse().join('/')}
+                  </option>
+                ))}
+          </select>
 
           <label className="fx-form-check">
             <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />

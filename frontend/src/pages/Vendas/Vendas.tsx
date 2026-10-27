@@ -27,14 +27,11 @@ import {
   percentChange,
 } from '../../utils/format'
 import { formaPagamentoLabel } from './formasPagamento'
+import { metaFaturamento, metaVendasFechadas } from './metas'
 import { VendaFormModal } from './VendaFormModal'
 import './Vendas.css'
 
 const PAGE_SIZE = 8
-
-// As metas ainda não ficam no banco.
-const metaFaturamento = 450000
-const metaVendasFechadas = 9
 
 type VendaStatus = 'Pago' | 'Pendente' | 'Cancelada'
 

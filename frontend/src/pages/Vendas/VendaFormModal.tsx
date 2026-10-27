@@ -25,6 +25,8 @@ type Props = {
 export function VendaFormModal({ venda, onClose, onSaved }: Props) {
   const formId = useId()
   const { user } = useAuth()
+  // A lista de funcionários é só para gerentes (GestaoJWTAuth). Quem não é gerente vende em nome próprio.
+  const escolheVendedor = !!user?.pode_gerenciar
   const [veiculos, setVeiculos] = useState<VeiculoApi[]>([])
   const [clientes, setClientes] = useState<PessoaOpcao[]>([])
   const [vendedores, setVendedores] = useState<PessoaOpcao[]>([])
@@ -49,13 +51,13 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
       // Na edição o veículo não muda, então só a venda nova precisa da lista de disponíveis.
       venda ? Promise.resolve(null) : api<Paginated<VeiculoApi>>('/veiculos?status=disponivel&limit=1000'),
       api<Paginated<PessoaOpcao>>('/clientes?limit=1000'),
-      api<Paginated<PessoaOpcao>>('/funcionarios?limit=1000'),
+      escolheVendedor ? api<Paginated<PessoaOpcao>>('/funcionarios?limit=1000') : Promise.resolve(null),
     ])
       .then(([v, c, f]) => {
         if (!active) return
         if (v) setVeiculos(v.items)
         setClientes(c.items)
-        setVendedores(f.items)
+        if (f) setVendedores(f.items)
       })
       .catch((err: Error) => {
         if (active) setError(`Não foi possível carregar as opções: ${err.message}`)
@@ -66,7 +68,7 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
     return () => {
       active = false
     }
-  }, [venda])
+  }, [venda, escolheVendedor])
 
   function chooseVeiculo(id: string) {
     setVeiculoId(id)
@@ -107,6 +109,9 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
   }
 
   const semVeiculos = !venda && !loading && veiculos.length === 0
+  // Conta antiga, sem funcionário ligado, e sem permissão de escolher outro vendedor.
+  const semVendedor = !escolheVendedor && !funcionarioId
+  const nomeVendedor = venda ? venda.funcionario : user?.funcionario?.pessoa.nome
 
   return (
     <Modal
@@ -123,7 +128,7 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
           <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
-          <button type="submit" form={formId} className="btn btn-primary" disabled={saving || loading || semVeiculos}>
+          <button type="submit" form={formId} className="btn btn-primary" disabled={saving || loading || semVeiculos || semVendedor}>
             {saving ? 'Salvando…' : 'Salvar'}
           </button>
         </>
@@ -161,20 +166,30 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
             ))}
           </select>
 
-          <label htmlFor={`${formId}-vendedor`}>Vendedor</label>
-          <select
-            id={`${formId}-vendedor`}
-            value={funcionarioId}
-            onChange={(e) => setFuncionarioId(e.target.value)}
-            required
-          >
-            <option value="">{loading ? 'Carregando…' : 'Selecione'}</option>
-            {vendedores.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.pessoa.nome}
-              </option>
-            ))}
-          </select>
+          {escolheVendedor ? (
+            <>
+              <label htmlFor={`${formId}-vendedor`}>Vendedor</label>
+              <select
+                id={`${formId}-vendedor`}
+                value={funcionarioId}
+                onChange={(e) => setFuncionarioId(e.target.value)}
+                required
+              >
+                <option value="">{loading ? 'Carregando…' : 'Selecione'}</option>
+                {vendedores.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.pessoa.nome}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : semVendedor ? (
+            <p>Sua conta não está ligada a um funcionário, então não pode registrar vendas.</p>
+          ) : (
+            <p>
+              Vendedor: <strong>{nomeVendedor}</strong>
+            </p>
+          )}
 
           <div className="vd-form-row">
             <div>

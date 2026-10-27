@@ -5,7 +5,7 @@ from ninja import Router
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 
-from accounts.authentication import JWTAuth
+from accounts.authentication import GestaoJWTAuth
 from sales.models import Compra, Venda
 
 from .enums import StatusContaPagar, StatusContaReceber
@@ -25,10 +25,10 @@ from .schemas import (
     ReceitaUpdate,
 )
 
-receitas_router = Router(tags=["financeiro - receitas"], auth=JWTAuth())
-despesas_router = Router(tags=["financeiro - despesas"], auth=JWTAuth())
-contas_receber_router = Router(tags=["financeiro - contas a receber"], auth=JWTAuth())
-contas_pagar_router = Router(tags=["financeiro - contas a pagar"], auth=JWTAuth())
+receitas_router = Router(tags=["financeiro - receitas"], auth=GestaoJWTAuth())
+despesas_router = Router(tags=["financeiro - despesas"], auth=GestaoJWTAuth())
+contas_receber_router = Router(tags=["financeiro - contas a receber"], auth=GestaoJWTAuth())
+contas_pagar_router = Router(tags=["financeiro - contas a pagar"], auth=GestaoJWTAuth())
 
 # Campo de FK recebido no JSON -> (model, mensagem quando o id não existe)
 RELACIONADOS = {
