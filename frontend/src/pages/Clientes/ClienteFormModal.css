@@ -1,0 +1,81 @@
+/* Formulário de cliente (usado na tela de Clientes e no funil) */
+
+.clform fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.clform label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.clform input:not([type='radio']),
+.clform select {
+  width: 100%;
+  padding: 10px;
+  font: inherit;
+  color: var(--text-h);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.clform p {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.clform .clform-note {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.clform-section {
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.clform-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.clform-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.clform-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.clform-choice label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.clform-error {
+  color: var(--danger);
+}
+
+@media (max-width: 600px) {
+  .clform-row {
+    grid-template-columns: 1fr;
+  }
+}

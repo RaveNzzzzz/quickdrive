@@ -193,3 +193,39 @@ export type NegociacaoEventoApi = {
   funcionario: string | null
   data: string
 }
+
+// --- Clientes (backend: customers/schemas.py ClienteOut + people/schemas.py PessoaOut) ---
+
+export type EnderecoApi = {
+  id: number
+  rua: string
+  numero: string
+  complemento: string
+  bairro: string
+  cidade: string
+  uf: string
+  cep: string
+}
+
+export type ClienteApi = {
+  id: number
+  codigo: string
+  ativo: boolean
+  ultima_interacao: string | null
+  created_at: string
+  pessoa: {
+    id: number
+    nome: string
+    email: string
+    telefone: string
+    data_nascimento: string | null
+    cpf_cnpj: string
+    tipo_pessoa: 'FISICA' | 'JURIDICA'
+    endereco: EnderecoApi | null
+  }
+  /** Calculados a partir das vendas (não canceladas) e do funil. */
+  veiculos_comprados: number
+  ltv: number
+  em_negociacao: boolean
+  responsavel: string | null
+}

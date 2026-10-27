@@ -2,13 +2,12 @@ import { useRef, useState, type DragEvent } from 'react'
 import { Car, MoreHorizontal, Phone } from 'lucide-react'
 import { useDismiss } from '../../components/useDismiss'
 import type { EtapaApi, NegociacaoApi } from '../../types'
-import { currency } from '../../utils/format'
+import { currency, formatarTelefone } from '../../utils/format'
 import {
   diaMes,
   diasDesde,
   ehAberta,
   etapas,
-  formatarTelefone,
   motivoLabel,
   origemLabel,
   staleThresholdDays,

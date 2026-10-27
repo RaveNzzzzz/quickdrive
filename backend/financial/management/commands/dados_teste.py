@@ -252,6 +252,12 @@ class Command(BaseCommand):
                 valor_proposta=Decimal(valor) if valor else None, proximo_passo=passo,
                 proximo_contato=dia(contato) if contato is not None else None, motivo_perda=motivo,
             )
+        # Um cliente já cadastrado voltando para comprar outro carro (aparece "Em negociação" na tela de Clientes).
+        negociacao(
+            "test_drive", 3, nome_interessado=clientes[0].pessoa.nome, cliente=clientes[0], telefone=clientes[0].pessoa.telefone,
+            veiculo=veiculos["Fox"], funcionario=vendedores[0], origem="indicacao",
+            proximo_passo="Retorno sobre o test drive", proximo_contato=dia(1),
+        )
         pagas = Venda.objects.filter(veiculo__chassi__startswith=CHASSI, status="pago").order_by("-data_venda")[:2]
         for venda in pagas:
             negociacao(

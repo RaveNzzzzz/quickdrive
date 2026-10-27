@@ -3,16 +3,8 @@ import { api } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { Modal } from '../../components/Modal'
 import type { EtapaApi, NegociacaoApi, NegociacaoEventoApi, Paginated, VeiculoApi } from '../../types'
-import {
-  diaMes,
-  etapaTitulo,
-  etapas,
-  etapasAbertas,
-  formatarTelefone,
-  motivoLabel,
-  origens,
-  soDigitos,
-} from './funil'
+import { formatarTelefone, soDigitos } from '../../utils/format'
+import { diaMes, etapaTitulo, etapas, etapasAbertas, motivoLabel, origens } from './funil'
 
 // Só o que o formulário usa de cliente e funcionário.
 type PessoaOpcao = { id: number; pessoa: { nome: string; telefone: string } }

@@ -9,6 +9,11 @@ export const diasEncerradas = 30
 /** Período usado nos indicadores do topo (conversão, tempo médio, motivo de perda). */
 export const diasIndicadores = 90
 
+/** Quantos cartões cada coluna mostra antes do "Mostrar mais" (e quantos a mais a cada clique). */
+export const cartoesPorColuna = 8
+/** Vendido e Perdido são só para consulta: mostram menos. */
+export const cartoesPorColunaEncerrada = 5
+
 export type Etapa = {
   id: EtapaApi
   title: string
@@ -68,13 +73,3 @@ export function diasDesde(iso: string, agora = Date.now()) {
 export function diaMes(iso: string) {
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 }
-
-/** "11987654321" -> "(11) 98765-4321" */
-export function formatarTelefone(telefone: string) {
-  if (telefone.length === 11) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 7)}-${telefone.slice(7)}`
-  if (telefone.length === 10) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 6)}-${telefone.slice(6)}`
-  return telefone
-}
-
-/** Deixa só os números (o backend guarda o telefone assim). */
-export const soDigitos = (texto: string) => texto.replace(/\D/g, '')

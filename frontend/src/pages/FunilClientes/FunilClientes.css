@@ -563,3 +563,32 @@
     width: 100%;
   }
 }
+
+/* Paginação dentro de cada coluna */
+
+.funil-paginacao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.funil-mais {
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.funil-mais:hover {
+  background: var(--accent-bg);
+}
+
+.funil-menos {
+  border-style: solid;
+  color: var(--text-muted);
+}

@@ -3,8 +3,8 @@ import { api } from '../../api/client'
 import { Modal } from '../../components/Modal'
 import { avisarVendasAlteradas } from '../../hooks/vendasAlteradas'
 import type { NegociacaoApi, VendaApi } from '../../types'
+import { ClienteFormModal } from '../Clientes/ClienteFormModal'
 import { VendaFormModal } from '../Vendas/VendaFormModal'
-import { ClienteConversaoModal } from './ClienteConversaoModal'
 
 type Props = {
   negociacao: NegociacaoApi
@@ -58,9 +58,10 @@ export function RegistrarVenda({ negociacao: inicial, onClose, onDone, onChange 
   if (!negociacao.cliente_id) {
     return (
       <>
-        <ClienteConversaoModal
-          nome={negociacao.nome_interessado}
-          telefone={negociacao.telefone}
+        <ClienteFormModal
+          inicial={{ nome: negociacao.nome_interessado, telefone: negociacao.telefone }}
+          aviso="Passo 1 de 2: para registrar a venda, o interessado precisa virar cliente com cadastro completo."
+          textoSalvar="Cadastrar e continuar"
           onClose={onClose}
           onSaved={(cliente) => {
             ligarCliente(cliente.id).catch((err: Error) =>

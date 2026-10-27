@@ -1,4 +1,6 @@
 from django.db import transaction
+from django.db.models import Count, DecimalField, Exists, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Query, Router
@@ -6,6 +8,9 @@ from ninja.pagination import paginate
 from accounts.authentication import JWTAuth
 
 from people.services import atualizar_pessoa, criar_pessoa, salvar
+from sales.enums import StatusVenda
+from sales.models import Negociacao, Venda
+from sales.services import ETAPAS_ABERTAS
 
 from .models import Cliente
 from .schemas import ClienteFiltro, ClienteIn, ClienteOut, ClienteUpdate
@@ -14,7 +19,26 @@ router = Router(tags=["clientes"], auth=JWTAuth())
 
 
 def _queryset():
-    return Cliente.objects.select_related("pessoa__endereco")
+    # Tudo calculado no próprio banco, numa consulta só (sem N+1).
+    venda_valida = ~Q(vendas__status=StatusVenda.CANCELADA)
+    abertas = Negociacao.objects.filter(cliente=OuterRef("pk"), etapa__in=ETAPAS_ABERTAS)
+    ultima_venda = (
+        Venda.objects.filter(cliente=OuterRef("pk")).exclude(status=StatusVenda.CANCELADA).order_by("-data_venda", "-id")
+    )
+    return Cliente.objects.select_related("pessoa__endereco").annotate(
+        veiculos_comprados=Count("vendas", filter=venda_valida),
+        ltv=Coalesce(
+            Sum("vendas__valor_venda", filter=venda_valida),
+            Value(0),
+            output_field=DecimalField(max_digits=14, decimal_places=2),
+        ),
+        em_negociacao=Exists(abertas),
+        # Responsável: quem cuida da negociação aberta mais recente; sem ela, quem fez a última venda.
+        responsavel=Coalesce(
+            Subquery(abertas.order_by("-etapa_desde").values("funcionario__pessoa__nome")[:1]),
+            Subquery(ultima_venda.values("funcionario__pessoa__nome")[:1]),
+        ),
+    )
 
 
 @router.get("", response=list[ClienteOut])

@@ -1,7 +1,9 @@
 import { useId, useState, type FormEvent } from 'react'
 import { api } from '../../api/client'
 import { Modal } from '../../components/Modal'
-import { formatarTelefone, soDigitos } from './funil'
+import type { ClienteApi } from '../../types'
+import { formatarDocumento, formatarTelefone, soDigitos } from '../../utils/format'
+import './ClienteFormModal.css'
 
 // Mesmos valores de UF (backend/people/enums.py).
 const UFS = [
@@ -9,31 +11,36 @@ const UFS = [
   'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-export type ClienteCriado = { id: number; pessoa: { nome: string } }
-
 type Props = {
-  nome: string
-  telefone: string
+  /** Cliente a editar. Sem ele, cadastra um novo. */
+  cliente?: ClienteApi
+  /** Nome e telefone já conhecidos (ex.: o interessado do funil virando cliente). */
+  inicial?: { nome: string; telefone: string }
+  /** Texto acima do formulário (ex.: "Passo 1 de 2"). */
+  aviso?: string
+  textoSalvar?: string
   onClose: () => void
-  onSaved: (cliente: ClienteCriado) => void
+  onSaved: (cliente: ClienteApi) => void
 }
 
-/** Cadastro completo do cliente, pedido só na hora da venda (antes o interessado tinha só nome e telefone). */
-export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneInicial, onClose, onSaved }: Props) {
+/** Cadastro completo do cliente (pessoa + endereço). Usado na tela de Clientes e no "Registrar venda" do funil. */
+export function ClienteFormModal({ cliente, inicial, aviso, textoSalvar, onClose, onSaved }: Props) {
   const formId = useId()
-  const [tipoPessoa, setTipoPessoa] = useState<'FISICA' | 'JURIDICA'>('FISICA')
-  const [nome, setNome] = useState(nomeInicial)
-  const [telefone, setTelefone] = useState(formatarTelefone(telefoneInicial))
-  const [email, setEmail] = useState('')
-  const [documento, setDocumento] = useState('')
-  const [nascimento, setNascimento] = useState('')
-  const [cep, setCep] = useState('')
-  const [rua, setRua] = useState('')
-  const [numero, setNumero] = useState('')
-  const [complemento, setComplemento] = useState('')
-  const [bairro, setBairro] = useState('')
-  const [cidade, setCidade] = useState('')
-  const [uf, setUf] = useState('SP')
+  const pessoa = cliente?.pessoa
+  const endereco = pessoa?.endereco
+  const [tipoPessoa, setTipoPessoa] = useState<'FISICA' | 'JURIDICA'>(pessoa?.tipo_pessoa ?? 'FISICA')
+  const [nome, setNome] = useState(pessoa?.nome ?? inicial?.nome ?? '')
+  const [telefone, setTelefone] = useState(formatarTelefone(pessoa?.telefone ?? inicial?.telefone ?? ''))
+  const [email, setEmail] = useState(pessoa?.email ?? '')
+  const [documento, setDocumento] = useState(pessoa ? formatarDocumento(pessoa.cpf_cnpj) : '')
+  const [nascimento, setNascimento] = useState(pessoa?.data_nascimento ?? '')
+  const [cep, setCep] = useState(endereco?.cep ?? '')
+  const [rua, setRua] = useState(endereco?.rua ?? '')
+  const [numero, setNumero] = useState(endereco?.numero ?? '')
+  const [complemento, setComplemento] = useState(endereco?.complemento ?? '')
+  const [bairro, setBairro] = useState(endereco?.bairro ?? '')
+  const [cidade, setCidade] = useState(endereco?.cidade ?? '')
+  const [uf, setUf] = useState(endereco?.uf ?? 'SP')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -50,39 +57,38 @@ export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneIni
     if (doc.length !== (fisica ? 11 : 14)) return setError(fisica ? 'O CPF deve ter 11 dígitos.' : 'O CNPJ deve ter 14 dígitos.')
     if (cepDigitos.length !== 8) return setError('O CEP deve ter 8 dígitos.')
 
+    const dadosPessoa = {
+      nome,
+      email,
+      telefone: fone,
+      cpf_cnpj: doc,
+      data_nascimento: nascimento || null,
+      endereco: { cep: cepDigitos, rua, numero, complemento, bairro, cidade, uf },
+    }
     setSaving(true)
     try {
-      const cliente = await api<ClienteCriado>('/clientes', {
-        method: 'POST',
-        body: JSON.stringify({
-          pessoa: {
-            nome,
-            email,
-            telefone: fone,
-            cpf_cnpj: doc,
-            tipo_pessoa: tipoPessoa,
-            data_nascimento: nascimento || null,
-            endereco: { cep: cepDigitos, rua, numero, complemento, bairro, cidade, uf },
-          },
-        }),
+      const salvo = await api<ClienteApi>(cliente ? `/clientes/${cliente.id}` : '/clientes', {
+        method: cliente ? 'PATCH' : 'POST',
+        // O tipo de pessoa só é escolhido no cadastro (a edição não troca física <-> jurídica).
+        body: JSON.stringify({ pessoa: cliente ? dadosPessoa : { ...dadosPessoa, tipo_pessoa: tipoPessoa } }),
       })
-      onSaved(cliente)
+      onSaved(salvo)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível cadastrar o cliente.')
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar o cliente.')
       setSaving(false)
     }
   }
 
   return (
     <Modal
-      title="Cadastrar cliente"
+      title={cliente ? 'Editar cliente' : 'Cadastrar cliente'}
       size="lg"
       onClose={onClose}
       busy={saving}
       footer={
         <>
           {error && (
-            <p className="funil-error-text" role="alert">
+            <p className="clform-error" role="alert">
               {error}
             </p>
           )}
@@ -90,28 +96,37 @@ export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneIni
             Cancelar
           </button>
           <button type="submit" form={formId} className="btn btn-primary" disabled={saving}>
-            {saving ? 'Salvando…' : 'Cadastrar e continuar'}
+            {saving ? 'Salvando…' : (textoSalvar ?? 'Salvar')}
           </button>
         </>
       }
     >
-      <form id={formId} className="funil-form" onSubmit={submit}>
-        <p className="funil-form-note">
-          Passo 1 de 2: para registrar a venda, o interessado precisa virar cliente com cadastro completo.
-        </p>
+      <form id={formId} className="clform" onSubmit={submit}>
+        {aviso && <p className="clform-note">{aviso}</p>}
         <fieldset disabled={saving}>
-          <div className="funil-form-choice" role="radiogroup" aria-label="Tipo de pessoa">
-            <label>
-              <input type="radio" name={`${formId}-tipo`} checked={fisica} onChange={() => setTipoPessoa('FISICA')} />
-              Pessoa física
-            </label>
-            <label>
-              <input type="radio" name={`${formId}-tipo`} checked={!fisica} onChange={() => setTipoPessoa('JURIDICA')} />
-              Pessoa jurídica
-            </label>
-          </div>
+          {cliente ? (
+            <p>
+              Tipo: <strong>{fisica ? 'Pessoa física' : 'Pessoa jurídica'}</strong>
+            </p>
+          ) : (
+            <div className="clform-choice" role="radiogroup" aria-label="Tipo de pessoa">
+              <label>
+                <input type="radio" name={`${formId}-tipo`} checked={fisica} onChange={() => setTipoPessoa('FISICA')} />
+                Pessoa física
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name={`${formId}-tipo`}
+                  checked={!fisica}
+                  onChange={() => setTipoPessoa('JURIDICA')}
+                />
+                Pessoa jurídica
+              </label>
+            </div>
+          )}
 
-          <div className="funil-form-row">
+          <div className="clform-row">
             <div>
               <label htmlFor={`${formId}-nome`}>{fisica ? 'Nome completo' : 'Razão social'}</label>
               <input id={`${formId}-nome`} value={nome} onChange={(e) => setNome(e.target.value)} maxLength={200} required />
@@ -129,7 +144,7 @@ export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneIni
             </div>
           </div>
 
-          <div className="funil-form-row">
+          <div className="clform-row">
             <div>
               <label htmlFor={`${formId}-email`}>E-mail</label>
               <input id={`${formId}-email`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -140,6 +155,7 @@ export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneIni
                 id={`${formId}-telefone`}
                 type="tel"
                 inputMode="tel"
+                placeholder="(11) 98765-4321"
                 value={telefone}
                 onChange={(e) => setTelefone(e.target.value)}
                 required
@@ -150,15 +166,10 @@ export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneIni
           <label htmlFor={`${formId}-nascimento`}>
             {fisica ? 'Data de nascimento (opcional)' : 'Data de abertura (opcional)'}
           </label>
-          <input
-            id={`${formId}-nascimento`}
-            type="date"
-            value={nascimento}
-            onChange={(e) => setNascimento(e.target.value)}
-          />
+          <input id={`${formId}-nascimento`} type="date" value={nascimento} onChange={(e) => setNascimento(e.target.value)} />
 
-          <h3 className="funil-form-section">Endereço</h3>
-          <div className="funil-form-row">
+          <h3 className="clform-section">Endereço</h3>
+          <div className="clform-row">
             <div>
               <label htmlFor={`${formId}-cep`}>CEP</label>
               <input
@@ -179,7 +190,7 @@ export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneIni
               </select>
             </div>
           </div>
-          <div className="funil-form-row">
+          <div className="clform-row">
             <div>
               <label htmlFor={`${formId}-rua`}>Rua</label>
               <input id={`${formId}-rua`} value={rua} onChange={(e) => setRua(e.target.value)} maxLength={200} required />
@@ -189,7 +200,7 @@ export function ClienteConversaoModal({ nome: nomeInicial, telefone: telefoneIni
               <input id={`${formId}-numero`} value={numero} onChange={(e) => setNumero(e.target.value)} maxLength={20} required />
             </div>
           </div>
-          <div className="funil-form-row">
+          <div className="clform-row">
             <div>
               <label htmlFor={`${formId}-bairro`}>Bairro</label>
               <input id={`${formId}-bairro`} value={bairro} onChange={(e) => setBairro(e.target.value)} maxLength={100} required />

@@ -8,6 +8,8 @@ import type { EtapaApi, NegociacaoApi, Paginated } from '../../types'
 import { currency } from '../../utils/format'
 import { todayIso } from '../Financeiro/financeiroUtils'
 import {
+  cartoesPorColuna,
+  cartoesPorColunaEncerrada,
   diasDesde,
   diasEncerradas,
   diasIndicadores,
@@ -50,6 +52,8 @@ export default function FunilClientes() {
   const [origem, setOrigem] = useState('')
   // Quem não é gerente começa vendo só as próprias negociações (mas pode ver as de todos).
   const [somenteMinhas, setSomenteMinhas] = useState(!gerente && meuId !== null)
+  // Quantos cartões cada coluna mostra agora (sem valor = o padrão). Muda com "Mostrar mais/menos".
+  const [limites, setLimites] = useState<Partial<Record<EtapaApi, number>>>({})
 
   const [editor, setEditor] = useState<Editor | null>(null)
   const [perda, setPerda] = useState<NegociacaoApi | null>(null)
@@ -81,6 +85,17 @@ export default function FunilClientes() {
   }, [attempt])
 
   const podeEditar = (n: NegociacaoApi) => gerente || n.funcionario_id === meuId
+
+  const limitePadrao = (etapa: EtapaApi) => (ehAberta(etapa) ? cartoesPorColuna : cartoesPorColunaEncerrada)
+  const limiteDe = (etapa: EtapaApi) => limites[etapa] ?? limitePadrao(etapa)
+
+  /** Troca um filtro e recolhe as colunas (a lista mudou, então começa de novo do topo). */
+  function filtrar<T>(setter: (valor: T) => void) {
+    return (valor: T) => {
+      setter(valor)
+      setLimites({})
+    }
+  }
 
   // Vendedores que aparecem no filtro (tirados das próprias negociações, sem precisar da lista de funcionários).
   const vendedores = useMemo(() => {
@@ -241,7 +256,18 @@ export default function FunilClientes() {
     const n = negociacoes.find((x) => x.id === draggingId)
     endDrag()
     if (!n || n.id === antesDe) return
+    if (antesDe === null) {
+      // Soltou no fim da coluna: abre a coluna até o fim, para o cartão não sumir na parte escondida.
+      const total = visiveis.filter((x) => x.etapa === etapa).length + 1
+      setLimites((l) => ({ ...l, [etapa]: Math.max(limiteDe(etapa), total) }))
+    }
     levarPara(n, etapa, antesDe)
+  }
+
+  /** Pelo menu "Mover para", o cartão vai para o topo da coluna de destino (sempre visível). */
+  function moverPeloMenu(n: NegociacaoApi, etapa: EtapaApi) {
+    const primeiro = visiveis.find((x) => x.etapa === etapa && x.id !== n.id)
+    levarPara(n, etapa, primeiro?.id ?? null)
   }
 
   const semFuncionario = meuId === null && !gerente
@@ -294,14 +320,14 @@ export default function FunilClientes() {
             <Search size={16} aria-hidden="true" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => filtrar(setQuery)(e.target.value)}
               placeholder="Cliente, veículo, placa ou vendedor"
               aria-label="Buscar negociação"
             />
           </label>
           {meuId !== null && (
             <label className="funil-check">
-              <input type="checkbox" checked={somenteMinhas} onChange={(e) => setSomenteMinhas(e.target.checked)} />
+              <input type="checkbox" checked={somenteMinhas} onChange={(e) => filtrar(setSomenteMinhas)(e.target.checked)} />
               Só as minhas
             </label>
           )}
@@ -309,7 +335,7 @@ export default function FunilClientes() {
             <select
               className="funil-select"
               value={vendedor}
-              onChange={(e) => setVendedor(e.target.value)}
+              onChange={(e) => filtrar(setVendedor)(e.target.value)}
               aria-label="Filtrar por vendedor"
             >
               <option value="">Todos os vendedores</option>
@@ -323,7 +349,7 @@ export default function FunilClientes() {
           <select
             className="funil-select"
             value={origem}
-            onChange={(e) => setOrigem(e.target.value)}
+            onChange={(e) => filtrar(setOrigem)(e.target.value)}
             aria-label="Filtrar por origem"
           >
             <option value="">Todas as origens</option>
@@ -367,6 +393,8 @@ export default function FunilClientes() {
         {etapas.map((etapa) => {
           const cards = visiveis.filter((n) => n.etapa === etapa.id)
           const total = cards.reduce((s, n) => s + valorDe(n), 0)
+          const limite = limiteDe(etapa.id)
+          const restantes = cards.length - limite
           const isOver = overEtapa === etapa.id && draggingId !== null
           const aberta = ehAberta(etapa.id)
 
@@ -407,7 +435,7 @@ export default function FunilClientes() {
                         : 'Nenhuma negociação.'}
                   </p>
                 )}
-                {cards.map((n) => (
+                {cards.slice(0, limite).map((n) => (
                   <NegociacaoCard
                     key={n.id}
                     negociacao={n}
@@ -416,7 +444,7 @@ export default function FunilClientes() {
                     arrastando={draggingId === n.id}
                     soltarAntes={overCardId === n.id && draggingId !== n.id}
                     onAbrir={() => setEditor({ negociacao: n })}
-                    onMover={(destino) => levarPara(n, destino)}
+                    onMover={(destino) => moverPeloMenu(n, destino)}
                     onRegistrarVenda={() => setRegistrando(n)}
                     onPerder={() => setPerda(n)}
                     onExcluir={() => pedirExclusao(n)}
@@ -426,6 +454,30 @@ export default function FunilClientes() {
                     onDrop={(e) => handleDrop(e, etapa.id, n.id)}
                   />
                 ))}
+                {(restantes > 0 || limite > limitePadrao(etapa.id)) && (
+                  <div className="funil-paginacao">
+                    {restantes > 0 && (
+                      <button
+                        type="button"
+                        className="funil-mais"
+                        onClick={() =>
+                          setLimites((l) => ({ ...l, [etapa.id]: limite + limitePadrao(etapa.id) }))
+                        }
+                      >
+                        Mostrar mais ({restantes})
+                      </button>
+                    )}
+                    {limite > limitePadrao(etapa.id) && cards.length > limitePadrao(etapa.id) && (
+                      <button
+                        type="button"
+                        className="funil-mais funil-menos"
+                        onClick={() => setLimites((l) => ({ ...l, [etapa.id]: undefined }))}
+                      >
+                        Mostrar menos
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {aberta && !semFuncionario && (

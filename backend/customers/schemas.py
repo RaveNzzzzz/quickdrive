@@ -18,6 +18,11 @@ class ClienteUpdate(Schema):
 
 class ClienteOut(ModelSchema):
     pessoa: PessoaOut
+    # Calculados a partir das vendas e do funil (anotações em customers/api.py:_queryset).
+    veiculos_comprados: int = 0
+    ltv: float = 0
+    em_negociacao: bool = False
+    responsavel: str | None = None
 
     class Meta:
         model = Cliente
