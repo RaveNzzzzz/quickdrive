@@ -9,8 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { Conta } from './financeiroData'
-import { currencyCents, currencyCompact, daysFrom, type DateRange } from './financeiroUtils'
+import { currencyCents, currencyCompact, daysFrom, type Conta, type DateRange } from './financeiroUtils'
 
 const tick = { fontSize: 12, fill: 'var(--text-muted)' }
 

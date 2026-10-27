@@ -222,3 +222,68 @@
   color: var(--danger);
   background: var(--danger-bg);
 }
+
+.vd-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.vd-error-text {
+  color: var(--danger);
+}
+
+.vd-form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.vd-form label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.vd-form input,
+.vd-form select {
+  width: 100%;
+  padding: 10px;
+  font: inherit;
+  color: var(--text-h);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.vd-form p {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Dois campos lado a lado; em tela estreita, um embaixo do outro. */
+.vd-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.vd-form-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 520px) {
+  .vd-form-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -9,6 +9,13 @@ from documents.api import docs_clientes_router, docs_funcionarios_router, tipos_
 from employees.api import cargos_router, funcionarios_router, setores_router
 from vehicles.api import router as veiculos_router
 from stock.api import router as estoque_router
+from sales.api import compras_router, vendas_router
+from financial.api import (
+    contas_pagar_router,
+    contas_receber_router,
+    despesas_router,
+    receitas_router,
+)
 
 api = NinjaExtraAPI(title="QuickDrive API", version="1.0.0")
 
@@ -34,6 +41,14 @@ api.add_router(
 )
 api.add_router("/veiculos", veiculos_router)
 api.add_router("/estoque", estoque_router)
+
+api.add_router("/vendas", vendas_router)
+api.add_router("/compras", compras_router)
+
+api.add_router("/financeiro/receitas", receitas_router)
+api.add_router("/financeiro/despesas", despesas_router)
+api.add_router("/financeiro/contas-receber", contas_receber_router)
+api.add_router("/financeiro/contas-pagar", contas_pagar_router)
 
 @api.exception_handler(ValidationError)
 def validation_error(request, exc):

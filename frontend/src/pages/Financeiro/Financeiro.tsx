@@ -1,17 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
+import { api } from '../../api/client'
 import { DateRangePicker } from '../../components/DateRangePicker'
+import { Modal } from '../../components/Modal'
+import type { ContaPagarApi, ContaReceberApi, Paginated } from '../../types'
+import { ContaFormModal } from './ContaFormModal'
 import { ContasTable, type ContasTab } from './ContasTable'
 import { CategoriasChart, FluxoCaixaChart } from './FinanceiroCharts'
-import { initialContas, todayIso, type Conta } from './financeiroData'
 import {
+  contaPath,
   currency,
+  fromContaPagar,
+  fromContaReceber,
   inRange,
   percentChange,
   previousRange,
   sortContas,
   statusOf,
   sum,
+  todayIso,
+  type Conta,
   type DateRange,
 } from './financeiroUtils'
 import './Financeiro.css'
@@ -52,13 +60,48 @@ function summarize(list: Conta[]) {
 
 export default function Financeiro() {
   const today = todayIso()
-  const [contas, setContas] = useState<Conta[]>(initialContas)
+  const [contas, setContas] = useState<Conta[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+  const [actionError, setActionError] = useState('')
+  const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [deletion, setDeletion] = useState<Conta | null>(null)
+  const [deleteError, setDeleteError] = useState('')
+  // null = formulário fechado; { conta } = editando; {} = nova conta
+  const [editor, setEditor] = useState<{ conta?: Conta } | null>(null)
   const [range, setRange] = useState<DateRange>(() => {
     const [y, m] = today.split('-').map(Number)
     const pad = (n: number) => String(n).padStart(2, '0')
     return { from: `${y}-${pad(m)}-01`, to: `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}` }
   })
   const [tab, setTab] = useState<ContasTab>('todas')
+
+  useEffect(() => {
+    let active = true
+    // KPIs e filtros são calculados aqui na tela, então buscamos a lista inteira (limit=1000).
+    Promise.all([
+      api<Paginated<ContaReceberApi>>('/financeiro/contas-receber?limit=1000'),
+      api<Paginated<ContaPagarApi>>('/financeiro/contas-pagar?limit=1000'),
+    ])
+      .then(([receber, pagar]) => {
+        if (!active) return
+        // Contas canceladas não entram nas contas do caixa.
+        setContas([
+          ...receber.items.filter((c) => c.status !== 'cancelado').map(fromContaReceber),
+          ...pagar.items.filter((c) => c.status !== 'cancelado').map(fromContaPagar),
+        ])
+      })
+      .catch((err: Error) => {
+        if (active) setError(err.message)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [attempt])
 
   const periodContas = useMemo(() => contas.filter((c) => inRange(c.dueDate, range)), [contas, range])
   const previousContas = useMemo(() => {
@@ -108,20 +151,85 @@ export default function Financeiro() {
     atrasadas: overdue.length,
   }
 
-  function togglePaid(id: number) {
-    setContas((prev) => prev.map((c) => (c.id === id ? { ...c, paidAt: c.paidAt ? null : today } : c)))
+  async function togglePaid(conta: Conta) {
+    // O backend preenche a data de pagamento/recebimento com hoje e apaga a data ao voltar para pendente.
+    const status = conta.paidAt ? 'pendente' : conta.kind === 'receber' ? 'recebido' : 'pago'
+    const options = { method: 'PATCH', body: JSON.stringify({ status }) }
+    setBusyKey(conta.key)
+    setActionError('')
+    try {
+      const updated =
+        conta.kind === 'receber'
+          ? fromContaReceber(await api<ContaReceberApi>(contaPath(conta), options))
+          : fromContaPagar(await api<ContaPagarApi>(contaPath(conta), options))
+      setContas((prev) => prev.map((c) => (c.key === updated.key ? updated : c)))
+    } catch (err) {
+      setActionError(`Não foi possível atualizar "${conta.description}": ${(err as Error).message}`)
+    } finally {
+      setBusyKey(null)
+    }
   }
+
+  function saved(conta: Conta) {
+    setContas((prev) =>
+      prev.some((c) => c.key === conta.key) ? prev.map((c) => (c.key === conta.key ? conta : c)) : [...prev, conta],
+    )
+    setEditor(null)
+  }
+
+  function askDelete(conta: Conta) {
+    setDeleteError('')
+    setDeletion(conta)
+  }
+
+  async function remove() {
+    if (!deletion) return
+    setBusyKey(deletion.key)
+    try {
+      await api<null>(contaPath(deletion), { method: 'DELETE' })
+      setContas((prev) => prev.filter((c) => c.key !== deletion.key))
+      setDeletion(null)
+    } catch (err) {
+      setDeleteError((err as Error).message)
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
+  const deleting = deletion !== null && busyKey === deletion.key
 
   return (
     <div className="fx-page">
       <div className="fx-header">
         <DateRangePicker value={range} onChange={setRange} />
 
-        <button type="button" className="btn btn-primary">
+        <button type="button" className="btn btn-primary" onClick={() => setEditor({})}>
           <Plus size={16} />
           Nova conta
         </button>
       </div>
+
+      {error && (
+        <div role="alert" className="fx-error">
+          Não foi possível carregar as contas: {error}
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => {
+              setLoading(true)
+              setError('')
+              setAttempt((v) => v + 1)
+            }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      {actionError && (
+        <div role="alert" className="fx-error">
+          {actionError}
+        </div>
+      )}
 
       <div className="kpi-row kpi-row-4">
         {kpis.map((kpi) => (
@@ -160,7 +268,46 @@ export default function Financeiro() {
         <CategoriasChart contas={periodContas} />
       </div>
 
-      <ContasTable rows={rows} today={today} tab={tab} tabCounts={tabCounts} onTabChange={setTab} onTogglePaid={togglePaid} />
+      <ContasTable
+        rows={rows}
+        today={today}
+        tab={tab}
+        tabCounts={tabCounts}
+        onTabChange={setTab}
+        onTogglePaid={togglePaid}
+        onEdit={(conta) => setEditor({ conta })}
+        onDelete={askDelete}
+        loading={loading}
+        busyKey={busyKey}
+      />
+
+      {editor && <ContaFormModal conta={editor.conta} onClose={() => setEditor(null)} onSaved={saved} />}
+
+      {deletion && (
+        <Modal
+          title="Confirmar exclusão"
+          size="sm"
+          busy={deleting}
+          onClose={() => setDeletion(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn-outline" disabled={deleting} onClick={() => setDeletion(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="btn btn-primary" disabled={deleting} onClick={remove}>
+                {deleting ? 'Excluindo…' : 'Excluir'}
+              </button>
+            </>
+          }
+        >
+          <p>Excluir a conta "{deletion.description}"? Essa ação não pode ser desfeita.</p>
+          {deleteError && (
+            <p role="alert" className="fx-error-text">
+              {deleteError}
+            </p>
+          )}
+        </Modal>
+      )}
     </div>
   )
 }
