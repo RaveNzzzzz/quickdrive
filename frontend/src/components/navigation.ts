@@ -33,7 +33,7 @@ export const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { label: 'Vendas', path: '/vendas', icon: ShoppingCart, description: 'Faturamento e vendas realizadas' },
       { label: 'Clientes', path: '/clientes', icon: Users, description: 'Base de clientes e relacionamento' },
-      { label: 'Funil de Clientes', path: '/funil', icon: Filter, description: 'Cada negociação na sua etapa' },
+      { label: 'Funil de Vendas', path: '/funil', icon: Filter, description: 'Cada negociação na sua etapa' },
     ],
   },
   {

@@ -287,3 +287,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+.vd-form-note {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.vd-form .vd-form-warning {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--text-h);
+}

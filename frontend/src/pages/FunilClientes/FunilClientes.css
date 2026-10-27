@@ -4,6 +4,10 @@
   gap: 20px;
 }
 
+.funil-kpi-text {
+  font-size: 20px;
+}
+
 /* Toolbar */
 
 .funil-toolbar {
@@ -17,7 +21,7 @@
 .funil-toolbar-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -39,24 +43,54 @@
   font-family: inherit;
   color: var(--text-h);
   outline: none;
-  width: 220px;
+  width: 240px;
+  max-width: 100%;
 }
 
 .funil-search input::placeholder {
   color: var(--text-muted);
 }
 
-.funil-summary {
-  font-size: 13px;
-  color: var(--text-muted);
+.funil-select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 9px 14px;
+}
+
+.funil-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.funil-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.funil-error-text {
+  color: var(--danger);
 }
 
 /* Board */
 
 .funil-board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(240px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(6, minmax(240px, 1fr));
+  gap: 16px;
   align-items: start;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -68,9 +102,16 @@
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  min-height: 560px;
+  min-height: 520px;
   border: 2px solid transparent;
   transition: border-color 0.15s, background-color 0.15s;
+}
+
+/* Vendido e Perdido: colunas de encerradas, um pouco mais apagadas */
+.funil-column-closed {
+  background: var(--bg);
+  box-shadow: none;
+  border: 2px dashed var(--border);
 }
 
 .funil-column-over {
@@ -136,6 +177,13 @@
   padding: 12px;
 }
 
+.funil-empty {
+  padding: 16px 8px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
 /* Cards */
 
 .funil-card {
@@ -143,7 +191,6 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px;
-  cursor: grab;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -154,7 +201,11 @@
   box-shadow: var(--shadow);
 }
 
-.funil-card:active {
+.funil-card-draggable {
+  cursor: grab;
+}
+
+.funil-card-draggable:active {
   cursor: grabbing;
 }
 
@@ -196,32 +247,33 @@
   line-height: 1.25;
 }
 
-.funil-card-person strong {
+/* O nome é um botão (abre os detalhes), mas com cara de texto */
+.funil-card-open {
   display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   font-size: 14px;
+  font-weight: 700;
   color: var(--text-h);
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.funil-card-open:hover,
+.funil-card-open:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .funil-card-person span {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-.funil-alert {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--danger-bg);
-  color: var(--danger);
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
 
 .funil-vehicle {
@@ -274,6 +326,97 @@
 .funil-card .funil-danger {
   color: var(--danger);
   font-weight: 600;
+  text-align: right;
+}
+
+.funil-card .funil-warning {
+  color: var(--warning);
+  font-weight: 600;
+  text-align: right;
+}
+
+.funil-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.funil-phone:hover {
+  color: var(--accent);
+}
+
+/* Menu "⋯" do cartão */
+
+.funil-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.funil-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.funil-more:hover,
+.funil-more[aria-expanded='true'] {
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.funil-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.funil-menu button {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-h);
+  text-align: left;
+  cursor: pointer;
+}
+
+.funil-menu button:hover,
+.funil-menu button:focus-visible {
+  background: var(--bg);
+}
+
+.funil-menu .funil-menu-danger {
+  color: var(--danger);
+}
+
+.funil-menu-title {
+  padding: 8px 10px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
 
 .funil-add {
@@ -297,75 +440,126 @@
   color: var(--text-h);
 }
 
-/* Modal */
+/* Formulários (dentro do Modal compartilhado) */
 
-.funil-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 21, 26, 0.45);
+.funil-form fieldset {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 50;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.funil-modal {
+.funil-form label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.funil-form input:not([type='radio']):not([type='checkbox']),
+.funil-form select {
   width: 100%;
-  max-width: 520px;
-  max-height: 100%;
-  overflow-y: auto;
-  padding: 24px;
+  padding: 10px;
+  font: inherit;
+  color: var(--text-h);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
-.funil-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
+.funil-form p {
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
-.funil-form-grid {
+.funil-form .funil-form-note {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.funil-form-section {
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.funil-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 12px;
 }
 
-.funil-field {
+.funil-form-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.funil-form-choice,
+.funil-form-motivos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.funil-form-motivos {
+  flex-direction: column;
+}
+
+.funil-form-choice label,
+.funil-form-motivos label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.funil-historico {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.funil-historico h3 {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.funil-historico ol {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.funil-field-full {
-  grid-column: 1 / -1;
-}
-
-.funil-field input,
-.funil-field select {
-  font-family: inherit;
+  margin: 0 0 8px;
+  padding-left: 18px;
   font-size: 14px;
-  font-weight: 400;
   color: var(--text-h);
-  background: var(--bg);
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 10px 12px;
-  outline: none;
 }
 
-.funil-field input:focus,
-.funil-field select:focus {
-  border-color: var(--accent);
-  background: var(--surface);
+.funil-historico li span {
+  color: var(--text-muted);
 }
 
-.funil-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
+.funil-historico li > span:first-child {
+  margin-right: 8px;
+}
+
+.btn.funil-btn-danger {
+  margin-right: auto;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+@media (max-width: 600px) {
+  .funil-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .funil-toolbar-left,
+  .funil-search {
+    width: 100%;
+  }
 }

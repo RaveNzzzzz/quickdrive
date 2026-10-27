@@ -72,7 +72,8 @@ export type ProdutoApi = { id: number; nome: string; especificacao: string; cate
 export type LoteApi = { id: number; quantidade: number; data_validade: string | null; numero_lote: string; produto_id: number }
 
 export type AlertaApi = {
-  tipo: 'parados' | 'manutencao' | 'revisao'
+  /** Os três primeiros vêm do pátio (/veiculos/alertas); "contato" e "funil_parado", do funil (/negociacoes/alertas). */
+  tipo: 'parados' | 'manutencao' | 'revisao' | 'contato' | 'funil_parado'
   nivel: 'danger' | 'warning'
   titulo: string
   subtitulo: string
@@ -152,4 +153,43 @@ export type CompraApi = {
   forma_pagamento: string
   status: 'pendente' | 'concluida' | 'cancelada'
   data_compra: string
+}
+
+// --- Funil de vendas (backend: sales/schemas.py, Negociacao*) ---
+
+export type EtapaApi = 'interesse' | 'test_drive' | 'negociacao' | 'credito' | 'vendido' | 'perdido'
+
+export type NegociacaoApi = {
+  id: number
+  /** Nome do cliente cadastrado ou, enquanto não houver, do interessado. */
+  nome: string
+  nome_interessado: string
+  telefone: string
+  cliente_id: number | null
+  veiculo_id: number | null
+  /** "Marca Modelo" */
+  veiculo: string | null
+  veiculo_placa: string | null
+  veiculo_valor: number | null
+  funcionario_id: number
+  funcionario: string
+  venda_id: number | null
+  etapa: EtapaApi
+  /** Data e hora em que entrou na etapa atual (ISO). */
+  etapa_desde: string
+  ordem: number
+  origem: string
+  valor_proposta: number | null
+  proximo_passo: string
+  proximo_contato: string | null
+  motivo_perda: string
+  created_at: string
+}
+
+export type NegociacaoEventoApi = {
+  id: number
+  etapa_anterior: EtapaApi | ''
+  etapa_nova: EtapaApi
+  funcionario: string | null
+  data: string
 }

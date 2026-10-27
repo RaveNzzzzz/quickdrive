@@ -18,11 +18,15 @@ const statusOptions: { value: StatusVendaApi; label: string }[] = [
 type Props = {
   /** Venda a editar. Sem ela, o formulário cria uma nova. */
   venda?: VendaApi
+  /** Valores já preenchidos na venda nova (usado pelo funil ao registrar a venda de uma negociação). */
+  inicial?: { veiculoId?: number | null; clienteId?: number | null; funcionarioId?: number; valor?: number | null }
+  /** Texto acima do formulário (ex.: "Passo 2 de 2"). */
+  aviso?: string
   onClose: () => void
   onSaved: (venda: VendaApi) => void
 }
 
-export function VendaFormModal({ venda, onClose, onSaved }: Props) {
+export function VendaFormModal({ venda, inicial, aviso, onClose, onSaved }: Props) {
   const formId = useId()
   const { user } = useAuth()
   // A lista de funcionários é só para gerentes (GestaoJWTAuth). Quem não é gerente vende em nome próprio.
@@ -32,13 +36,17 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
   const [vendedores, setVendedores] = useState<PessoaOpcao[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [veiculoId, setVeiculoId] = useState('')
-  const [clienteId, setClienteId] = useState(venda ? String(venda.cliente_id) : '')
-  // Na venda nova, o vendedor começa como o funcionário logado.
-  const [funcionarioId, setFuncionarioId] = useState(
-    venda ? String(venda.funcionario_id) : String(user?.funcionario?.id ?? ''),
+  const [veiculoId, setVeiculoId] = useState(inicial?.veiculoId ? String(inicial.veiculoId) : '')
+  const [clienteId, setClienteId] = useState(
+    venda ? String(venda.cliente_id) : inicial?.clienteId ? String(inicial.clienteId) : '',
   )
-  const [valor, setValor] = useState(venda ? String(venda.valor_venda) : '')
+  // Na venda nova, o vendedor começa como o funcionário logado (ou o da negociação, vindo do funil).
+  const [funcionarioId, setFuncionarioId] = useState(
+    venda ? String(venda.funcionario_id) : String(inicial?.funcionarioId ?? user?.funcionario?.id ?? ''),
+  )
+  const [valor, setValor] = useState(
+    venda ? String(venda.valor_venda) : inicial?.valor ? String(inicial.valor) : '',
+  )
   const [forma, setForma] = useState(venda?.forma_pagamento ?? 'pix')
   const [status, setStatus] = useState<StatusVendaApi>(venda?.status ?? 'pendente')
   const [data, setData] = useState(venda?.data_venda ?? todayIso())
@@ -48,14 +56,15 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
   useEffect(() => {
     let active = true
     Promise.all([
-      // Na edição o veículo não muda, então só a venda nova precisa da lista de disponíveis.
-      venda ? Promise.resolve(null) : api<Paginated<VeiculoApi>>('/veiculos?status=disponivel&limit=1000'),
+      // Na edição o veículo não muda, então só a venda nova precisa da lista de veículos à venda.
+      venda ? Promise.resolve(null) : api<Paginated<VeiculoApi>>('/veiculos?limit=1000'),
       api<Paginated<PessoaOpcao>>('/clientes?limit=1000'),
       escolheVendedor ? api<Paginated<PessoaOpcao>>('/funcionarios?limit=1000') : Promise.resolve(null),
     ])
       .then(([v, c, f]) => {
         if (!active) return
-        if (v) setVeiculos(v.items)
+        // Reservado = em negociação no funil; continua podendo ser vendido (o formulário avisa).
+        if (v) setVeiculos(v.items.filter((x) => x.status === 'disponivel' || x.status === 'reservado'))
         setClientes(c.items)
         if (f) setVendedores(f.items)
       })
@@ -113,10 +122,13 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
   // Conta antiga, sem funcionário ligado, e sem permissão de escolher outro vendedor.
   const semVendedor = !escolheVendedor && !funcionarioId
   const nomeVendedor = venda ? venda.funcionario : user?.funcionario?.pessoa.nome
+  // Vindo do funil, o carro reservado é justamente o da negociação: não precisa avisar.
+  const reservadoPorOutro =
+    !inicial && veiculos.find((v) => String(v.id) === veiculoId)?.status === 'reservado'
 
   return (
     <Modal
-      title={venda ? 'Editar venda' : 'Nova venda'}
+      title={venda ? 'Editar venda' : inicial ? 'Registrar venda' : 'Nova venda'}
       onClose={onClose}
       busy={saving}
       footer={
@@ -136,6 +148,7 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
       }
     >
       <form id={formId} className="vd-form" onSubmit={submit}>
+        {aviso && <p className="vd-form-note">{aviso}</p>}
         <fieldset disabled={saving || loading}>
           {venda ? (
             <p>
@@ -150,10 +163,17 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
                 {veiculos.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.marca} {v.modelo} · {v.placa}
+                    {v.status === 'reservado' ? ' · reservado' : ''}
                   </option>
                 ))}
               </select>
               {semVeiculos && <p>Não há veículos disponíveis no pátio para vender.</p>}
+              {reservadoPorOutro && (
+                <p className="vd-form-warning">
+                  Este veículo está reservado por uma negociação no Funil de Vendas. Confira com o vendedor responsável
+                  antes de vender.
+                </p>
+              )}
             </>
           )}
 
