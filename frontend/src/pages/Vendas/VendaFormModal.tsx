@@ -89,7 +89,8 @@ export function VendaFormModal({ venda, onClose, onSaved }: Props) {
     const payload = {
       ...(venda ? {} : { veiculo_id: Number(veiculoId) }),
       cliente_id: Number(clienteId),
-      funcionario_id: Number(funcionarioId),
+      // Quem não é gerente não troca o vendedor ao editar (o backend só aceita o próprio id).
+      ...(escolheVendedor || !venda ? { funcionario_id: Number(funcionarioId) } : {}),
       valor_venda: valorNumero.toFixed(2),
       forma_pagamento: forma,
       status,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { api } from '../api/client'
+import { useVersaoVendas } from '../hooks/vendasAlteradas'
 import { todayIso } from '../pages/Financeiro/financeiroUtils'
 import { metaFaturamento } from '../pages/Vendas/metas'
 import type { Paginated, VendaApi } from '../types'
@@ -23,6 +24,7 @@ export function Sidebar() {
   // null enquanto carrega
   const [vendido, setVendido] = useState<number | null>(null)
   const [error, setError] = useState(false)
+  const versaoVendas = useVersaoVendas()
 
   useEffect(() => {
     let active = true
@@ -32,6 +34,7 @@ export function Sidebar() {
         if (!active) return
         const doMes = data.items.filter((v) => v.data_venda.startsWith(mes))
         setVendido(doMes.reduce((total, v) => total + v.valor_venda, 0))
+        setError(false)
       })
       .catch(() => {
         if (active) setError(true)
@@ -39,7 +42,7 @@ export function Sidebar() {
     return () => {
       active = false
     }
-  }, [])
+  }, [versaoVendas])
 
   const progress = Math.min(100, Math.round(((vendido ?? 0) / metaFaturamento) * 100))
 

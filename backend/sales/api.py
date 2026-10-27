@@ -5,7 +5,7 @@ from ninja import Router
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 
-from accounts.authentication import JWTAuth
+from accounts.authentication import JWTAuth, pode_gerenciar
 from customers.models import Cliente
 from employees.models import Funcionario
 from stock.models import Lote
@@ -43,6 +43,14 @@ def _dados_update(payload, anulaveis: tuple[str, ...] = ()) -> dict:
         if valor is None and campo not in anulaveis:
             raise HttpError(422, f"O campo {campo} não pode ficar vazio.")
     return dados
+
+
+def _conferir_funcionario(request, dados: dict, rotulo: str):
+    # Gerente registra em nome de qualquer funcionário; os demais, só em nome próprio.
+    if "funcionario_id" not in dados or pode_gerenciar(request.user):
+        return
+    if dados["funcionario_id"] != request.user.funcionario_id:
+        raise HttpError(403, f"Você só pode registrar {rotulo} em seu próprio nome.")
 
 
 def _validar(objeto):
@@ -86,6 +94,7 @@ def listar_vendas(request, status: StatusVenda | None = None):
 @vendas_router.post("", response={201: VendaOut})
 def criar_venda(request, payload: VendaIn):
     dados = payload.dict()
+    _conferir_funcionario(request, dados, "vendas")
     _conferir_relacionados(dados)
     ativa = dados["status"] != StatusVenda.CANCELADA
     if ativa:
@@ -109,6 +118,7 @@ def obter_venda(request, venda_id: int):
 @vendas_router.patch("/{int:venda_id}", response=VendaOut)
 def atualizar_venda(request, venda_id: int, payload: VendaUpdate):
     dados = _dados_update(payload)
+    _conferir_funcionario(request, dados, "vendas")
     _conferir_relacionados(dados)
     try:
         with transaction.atomic():
@@ -164,6 +174,7 @@ def listar_compras(request, status: StatusCompra | None = None, item_compra: Ite
 @compras_router.post("", response={201: CompraOut})
 def criar_compra(request, payload: CompraIn):
     dados = payload.dict()
+    _conferir_funcionario(request, dados, "compras")
     _conferir_relacionados(dados)
     compra = Compra(**dados)
     _validar(compra)
@@ -179,6 +190,7 @@ def obter_compra(request, compra_id: int):
 @compras_router.patch("/{int:compra_id}", response=CompraOut)
 def atualizar_compra(request, compra_id: int, payload: CompraUpdate):
     dados = _dados_update(payload, anulaveis=COMPRA_ANULAVEIS)
+    _conferir_funcionario(request, dados, "compras")
     _conferir_relacionados(dados)
     with transaction.atomic():
         compra = get_object_or_404(Compra.objects.select_for_update(), id=compra_id)
