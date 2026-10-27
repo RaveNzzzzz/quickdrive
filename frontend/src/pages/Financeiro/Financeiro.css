@@ -410,3 +410,80 @@
 .fx-totals strong.fx-amount-pagar {
   color: var(--danger);
 }
+
+.fx-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.fx-error-text {
+  color: var(--danger);
+}
+
+.fx-form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fx-form label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.fx-form input,
+.fx-form select {
+  width: 100%;
+  padding: 10px;
+  font: inherit;
+  color: var(--text-h);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.fx-form p {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Dois campos lado a lado; em tela estreita, um embaixo do outro. */
+.fx-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.fx-form-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 520px) {
+  .fx-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fx-form .fx-form-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fx-form .fx-form-check input {
+  width: auto;
+}

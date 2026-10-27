@@ -1,4 +1,62 @@
-import type { Conta, ContaKind } from './financeiroData'
+import type { ContaPagarApi, ContaReceberApi } from '../../types'
+
+export type ContaKind = 'receber' | 'pagar'
+
+export type Conta = {
+  /** Único na tela: uma conta a receber e uma a pagar podem ter o mesmo id no banco. */
+  key: string
+  id: number
+  kind: ContaKind
+  /** Id da receita (conta a receber) ou da despesa (conta a pagar). */
+  parentId: number
+  description: string
+  note: string
+  category: string
+  amount: number
+  dueDate: string // YYYY-MM-DD
+  paidAt: string | null // YYYY-MM-DD
+}
+
+// A API devolve as contas em dois formatos; a tela trabalha com um só.
+export function fromContaReceber(conta: ContaReceberApi): Conta {
+  return {
+    key: `receber-${conta.id}`,
+    id: conta.id,
+    kind: 'receber',
+    parentId: conta.receita_id,
+    description: conta.descricao,
+    note: conta.receita,
+    category: conta.categoria,
+    amount: conta.valor,
+    dueDate: conta.data_vencimento,
+    paidAt: conta.data_recebimento,
+  }
+}
+
+export function fromContaPagar(conta: ContaPagarApi): Conta {
+  return {
+    key: `pagar-${conta.id}`,
+    id: conta.id,
+    kind: 'pagar',
+    parentId: conta.despesa_id,
+    description: conta.descricao,
+    note: conta.despesa,
+    category: conta.categoria,
+    amount: conta.valor,
+    dueDate: conta.data_vencimento,
+    paidAt: conta.data_pagamento,
+  }
+}
+
+/** Caminho da conta na API, ex.: /financeiro/contas-receber/3 */
+export function contaPath(conta: Conta) {
+  return `/financeiro/contas-${conta.kind}/${conta.id}`
+}
+
+export function todayIso() {
+  const date = new Date()
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
 
 export type ContaStatus = 'pago' | 'atrasado' | 'hoje' | 'pendente'
 

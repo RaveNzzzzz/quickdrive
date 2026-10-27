@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Check, MoreHorizontal, Pencil, Search, Trash2, Undo2 } from 'lucide-react'
 import { Pagination } from '../../components/Pagination'
-import type { Conta } from './financeiroData'
 import {
+  type Conta,
   currencyCents,
   dueHint,
   formatDate,
@@ -37,14 +37,30 @@ type ContasTableProps = {
   tab: ContasTab
   tabCounts: Record<ContasTab, number>
   onTabChange: (tab: ContasTab) => void
-  onTogglePaid: (id: number) => void
+  onTogglePaid: (conta: Conta) => void
+  onEdit: (conta: Conta) => void
+  onDelete: (conta: Conta) => void
+  loading: boolean
+  /** Conta sendo salva agora (o botão dela fica desabilitado). */
+  busyKey: string | null
 }
 
-export function ContasTable({ rows, today, tab, tabCounts, onTabChange, onTogglePaid }: ContasTableProps) {
+export function ContasTable({
+  rows,
+  today,
+  tab,
+  tabCounts,
+  onTabChange,
+  onTogglePaid,
+  onEdit,
+  onDelete,
+  loading,
+  busyKey,
+}: ContasTableProps) {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<ContaStatus | 'todos'>('todos')
   const [page, setPage] = useState(1)
-  const [openMenu, setOpenMenu] = useState<number | null>(null)
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
 
   const q = query.trim().toLowerCase()
   const filtered = rows.filter((conta) => {
@@ -134,7 +150,7 @@ export function ContasTable({ rows, today, tab, tabCounts, onTabChange, onToggle
               {pageItems.map((conta) => {
                 const contaStatus = statusOf(conta, today)
                 return (
-                  <tr key={conta.id} className={contaStatus === 'atrasado' ? 'fx-row-late' : ''}>
+                  <tr key={conta.key} className={contaStatus === 'atrasado' ? 'fx-row-late' : ''}>
                     <td>
                       <strong className="fx-name">{conta.description}</strong>
                       <span className="fx-note">{conta.note}</span>
@@ -164,12 +180,22 @@ export function ContasTable({ rows, today, tab, tabCounts, onTabChange, onToggle
                     <td className="fx-right">
                       <div className="fx-actions">
                         {conta.paidAt ? (
-                          <button type="button" className="fx-undo" onClick={() => onTogglePaid(conta.id)}>
+                          <button
+                            type="button"
+                            className="fx-undo"
+                            disabled={busyKey === conta.key}
+                            onClick={() => onTogglePaid(conta)}
+                          >
                             <Undo2 size={14} />
                             Desfazer
                           </button>
                         ) : (
-                          <button type="button" className="fx-pay" onClick={() => onTogglePaid(conta.id)}>
+                          <button
+                            type="button"
+                            className="fx-pay"
+                            disabled={busyKey === conta.key}
+                            onClick={() => onTogglePaid(conta)}
+                          >
                             <Check size={14} />
                             {conta.kind === 'receber' ? 'Marcar recebido' : 'Marcar pago'}
                           </button>
@@ -179,19 +205,32 @@ export function ContasTable({ rows, today, tab, tabCounts, onTabChange, onToggle
                             type="button"
                             className="fx-more"
                             aria-label={`Mais ações para ${conta.description}`}
-                            onClick={() => setOpenMenu(openMenu === conta.id ? null : conta.id)}
+                            onClick={() => setOpenMenu(openMenu === conta.key ? null : conta.key)}
                           >
                             <MoreHorizontal size={16} />
                           </button>
-                          {openMenu === conta.id && (
+                          {openMenu === conta.key && (
                             <>
                               <div className="fx-menu-backdrop" onClick={() => setOpenMenu(null)} />
                               <div className="fx-menu">
-                                <button type="button" onClick={() => setOpenMenu(null)}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenu(null)
+                                    onEdit(conta)
+                                  }}
+                                >
                                   <Pencil size={14} />
                                   Editar
                                 </button>
-                                <button type="button" className="fx-menu-danger" onClick={() => setOpenMenu(null)}>
+                                <button
+                                  type="button"
+                                  className="fx-menu-danger"
+                                  onClick={() => {
+                                    setOpenMenu(null)
+                                    onDelete(conta)
+                                  }}
+                                >
                                   <Trash2 size={14} />
                                   Excluir
                                 </button>
@@ -208,7 +247,7 @@ export function ContasTable({ rows, today, tab, tabCounts, onTabChange, onToggle
               {pageItems.length === 0 && (
                 <tr>
                   <td colSpan={7} className="fx-empty">
-                    Nenhuma conta encontrada para esses filtros.
+                    {loading ? 'Carregando…' : 'Nenhuma conta encontrada para esses filtros.'}
                   </td>
                 </tr>
               )}

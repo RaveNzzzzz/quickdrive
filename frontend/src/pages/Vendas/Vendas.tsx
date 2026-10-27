@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -11,7 +11,10 @@ import {
   YAxis,
 } from 'recharts'
 import { Download, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { api } from '../../api/client'
+import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
+import type { Paginated, StatusVendaApi, VendaApi } from '../../types'
 import {
   currency,
   currencyCents,
@@ -23,18 +26,65 @@ import {
   initials,
   percentChange,
 } from '../../utils/format'
-import {
-  faturamentoMensal,
-  metaFaturamento,
-  metaVendasFechadas,
-  sellers,
-  vendas,
-  type Venda,
-  type VendaStatus,
-} from './vendasData'
+import { formaPagamentoLabel } from './formasPagamento'
+import { VendaFormModal } from './VendaFormModal'
 import './Vendas.css'
 
 const PAGE_SIZE = 8
+
+// As metas ainda não ficam no banco.
+const metaFaturamento = 450000
+const metaVendasFechadas = 9
+
+type VendaStatus = 'Pago' | 'Pendente' | 'Cancelada'
+
+type Venda = {
+  /** Como a API devolveu (o formulário de edição usa os ids e valores originais). */
+  raw: VendaApi
+  id: number
+  client: string
+  note: string
+  vehicle: string
+  plate: string
+  seller: string
+  value: number
+  status: VendaStatus
+  date: string // YYYY-MM-DD
+}
+
+const statusLabel: Record<StatusVendaApi, VendaStatus> = {
+  pago: 'Pago',
+  pendente: 'Pendente',
+  cancelada: 'Cancelada',
+}
+
+function fromApi(venda: VendaApi): Venda {
+  return {
+    raw: venda,
+    id: venda.id,
+    client: venda.cliente,
+    note: formaPagamentoLabel[venda.forma_pagamento] ?? venda.forma_pagamento,
+    vehicle: venda.veiculo,
+    plate: venda.placa,
+    seller: venda.funcionario,
+    value: venda.valor_venda,
+    status: statusLabel[venda.status],
+    date: venda.data_venda,
+  }
+}
+
+const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+// Faturamento (vendas pagas) de cada mês do ano atual
+function monthlyRevenue(list: Venda[]) {
+  const year = String(new Date().getFullYear())
+  const totals = monthNames.map((month) => ({ month, value: 0 }))
+  for (const venda of list) {
+    if (venda.status !== 'Pago' || !venda.date.startsWith(year)) continue
+    totals[Number(venda.date.slice(5, 7)) - 1].value += venda.value
+  }
+  return totals
+}
 
 type Tab = 'Todas' | 'Pagas' | 'Pendentes' | 'Canceladas'
 
@@ -84,19 +134,49 @@ function Change({ value }: { value: number | null }) {
 }
 
 export default function Vendas() {
+  const [vendas, setVendas] = useState<Venda[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+  const [deletion, setDeletion] = useState<Venda | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  // null = formulário fechado; { venda } = editando; {} = nova venda
+  const [editor, setEditor] = useState<{ venda?: VendaApi } | null>(null)
   const [period, setPeriod] = useState(30)
   const [tab, setTab] = useState<Tab>('Todas')
   const [query, setQuery] = useState('')
   const [seller, setSeller] = useState('')
   const [page, setPage] = useState(1)
 
+  useEffect(() => {
+    let active = true
+    // KPIs e filtros são calculados aqui na tela, então buscamos a lista inteira (limit=1000).
+    api<Paginated<VendaApi>>('/vendas?limit=1000')
+      .then((data) => {
+        if (active) setVendas(data.items.map(fromApi))
+      })
+      .catch((err: Error) => {
+        if (active) setError(err.message)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [attempt])
+
+  const sellers = useMemo(() => [...new Set(vendas.map((v) => v.seller))].sort(), [vendas])
+  const faturamentoMensal = useMemo(() => monthlyRevenue(vendas), [vendas])
+
   const inPeriod = useMemo(
     () => (period === 0 ? vendas : vendas.filter((v) => inWindow(v, period, 0))),
-    [period],
+    [vendas, period],
   )
   const previous = useMemo(
     () => (period === 0 ? null : vendas.filter((v) => inWindow(v, period * 2, period))),
-    [period],
+    [vendas, period],
   )
 
   const current = summarize(inPeriod)
@@ -148,8 +228,48 @@ export default function Vendas() {
     )
   }
 
+  function saved(venda: VendaApi) {
+    const item = fromApi(venda)
+    setVendas((prev) =>
+      prev.some((v) => v.id === item.id) ? prev.map((v) => (v.id === item.id ? item : v)) : [item, ...prev],
+    )
+    setEditor(null)
+  }
+
+  async function remove() {
+    if (!deletion) return
+    setDeleting(true)
+    try {
+      // Se a venda tiver contas a receber, a API recusa (409) e a mensagem aparece no pop-up.
+      await api<null>(`/vendas/${deletion.id}`, { method: 'DELETE' })
+      setVendas((prev) => prev.filter((v) => v.id !== deletion.id))
+      setDeletion(null)
+    } catch (err) {
+      setDeleteError((err as Error).message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="vd-page">
+      {error && (
+        <div role="alert" className="vd-error">
+          Não foi possível carregar as vendas: {error}
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => {
+              setLoading(true)
+              setError('')
+              setAttempt((v) => v + 1)
+            }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
       <div className="kpi-row kpi-row-4">
         <div className="card kpi-card">
           <div className="kpi-card-header">
@@ -252,6 +372,7 @@ export default function Vendas() {
                 value={query}
                 onChange={(e) => resetPage(setQuery)(e.target.value)}
                 placeholder="Cliente, veículo ou placa"
+                aria-label="Buscar por cliente, veículo ou placa"
               />
             </label>
             <select className="vd-select" value={seller} onChange={(e) => resetPage(setSeller)(e.target.value)} aria-label="Filtrar por vendedor">
@@ -276,7 +397,7 @@ export default function Vendas() {
               <Download size={16} />
               Exportar
             </button>
-            <button type="button" className="btn btn-primary">
+            <button type="button" className="btn btn-primary" onClick={() => setEditor({})}>
               <Plus size={16} />
               Nova venda
             </button>
@@ -320,10 +441,23 @@ export default function Vendas() {
                   <td className="vd-date">{formatDate(venda.date)}</td>
                   <td>
                     <div className="row-actions">
-                      <button type="button" className="row-action row-action-edit" aria-label={`Editar venda de ${venda.client}`}>
+                      <button
+                        type="button"
+                        className="row-action row-action-edit"
+                        aria-label={`Editar venda de ${venda.client}`}
+                        onClick={() => setEditor({ venda: venda.raw })}
+                      >
                         <Pencil size={15} />
                       </button>
-                      <button type="button" className="row-action row-action-delete" aria-label={`Excluir venda de ${venda.client}`}>
+                      <button
+                        type="button"
+                        className="row-action row-action-delete"
+                        aria-label={`Excluir venda de ${venda.client}`}
+                        onClick={() => {
+                          setDeleteError('')
+                          setDeletion(venda)
+                        }}
+                      >
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -333,7 +467,7 @@ export default function Vendas() {
               {pageItems.length === 0 && (
                 <tr>
                   <td colSpan={7} className="vd-empty">
-                    Nenhuma venda encontrada para esses filtros.
+                    {loading ? 'Carregando…' : 'Nenhuma venda encontrada para esses filtros.'}
                   </td>
                 </tr>
               )}
@@ -350,6 +484,38 @@ export default function Vendas() {
         itemLabel="vendas"
         onPageChange={setPage}
       />
+
+      {editor && <VendaFormModal venda={editor.venda} onClose={() => setEditor(null)} onSaved={saved} />}
+
+      {deletion && (
+        <Modal
+          title="Confirmar exclusão"
+          size="sm"
+          busy={deleting}
+          onClose={() => setDeletion(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn-outline" disabled={deleting} onClick={() => setDeletion(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="btn btn-primary" disabled={deleting} onClick={remove}>
+                {deleting ? 'Excluindo…' : 'Excluir'}
+              </button>
+            </>
+          }
+        >
+          <p>
+            Excluir a venda do {deletion.vehicle} ({deletion.plate}) para {deletion.client}? Essa ação não pode ser
+            desfeita.
+          </p>
+          <p>Se a venda não estiver cancelada, o veículo volta a ficar disponível no pátio.</p>
+          {deleteError && (
+            <p role="alert" className="vd-error-text">
+              {deleteError}
+            </p>
+          )}
+        </Modal>
+      )}
     </div>
   )
 }

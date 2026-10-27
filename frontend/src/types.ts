@@ -79,3 +79,60 @@ export type AlertaApi = {
   /** Preenchido quando o alerta é de um veículo só. */
   veiculo_id: number | null
 }
+
+// --- Vendas e financeiro (backend: sales/schemas.py e financial/schemas.py) ---
+
+export type StatusVendaApi = 'pendente' | 'pago' | 'cancelada'
+
+export type VendaApi = {
+  id: number
+  veiculo_id: number
+  /** "Marca Modelo", ex.: "VW Gol". */
+  veiculo: string
+  placa: string
+  cliente_id: number
+  cliente: string
+  funcionario_id: number
+  funcionario: string
+  valor_venda: number
+  forma_pagamento: string
+  status: StatusVendaApi
+  data_venda: string
+}
+
+export type ContaReceberApi = {
+  id: number
+  receita_id: number
+  /** Descrição da receita a que a conta pertence. */
+  receita: string
+  categoria: string
+  venda_id: number | null
+  descricao: string
+  valor: number
+  data_vencimento: string
+  data_recebimento: string | null
+  status: 'pendente' | 'recebido' | 'cancelado'
+}
+
+export type ContaPagarApi = {
+  id: number
+  despesa_id: number
+  /** Descrição da despesa a que a conta pertence. */
+  despesa: string
+  categoria: string
+  compra_id: number | null
+  descricao: string
+  valor: number
+  data_vencimento: string
+  data_pagamento: string | null
+  status: 'pendente' | 'pago' | 'cancelado'
+}
+
+/** Receita ou despesa (backend: financial/schemas.py). As duas têm os mesmos campos. */
+export type LancamentoApi = {
+  id: number
+  descricao: string
+  categoria: string
+  valor: number
+  data: string
+}
