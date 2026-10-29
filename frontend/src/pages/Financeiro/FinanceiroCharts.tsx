@@ -67,7 +67,7 @@ export function FluxoCaixaChart({ contas, range }: { contas: Conta[]; range: Dat
         <p>Entradas e saídas previstas por {unit}</p>
       </div>
       <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={4}>
+        <BarChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }} barGap={4}>
           <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border)" />
           <XAxis dataKey="label" tickLine={false} axisLine={false} tick={tick} />
           <YAxis
