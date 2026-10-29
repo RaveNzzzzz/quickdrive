@@ -79,6 +79,11 @@
   margin-bottom: 16px;
 }
 
+.transactions-card {
+  padding: 0;
+  overflow-x: auto;
+}
+
 .vehicle-cell {
   display: flex;
   align-items: center;
@@ -159,7 +164,7 @@ a.patio-item:hover img {
 
 /* Escurece a parte de baixo da foto para o nome continuar legível. */
 .patio-item:has(img)::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent 60%);
