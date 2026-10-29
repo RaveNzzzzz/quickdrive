@@ -323,7 +323,7 @@ export default function Vendas() {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={faturamentoMensal} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <BarChart data={faturamentoMensal} margin={{ top: 8, right: 16, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border)" />
             <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
             <YAxis
