@@ -1,7 +1,7 @@
 :root {
-  --text: #6b7280;
-  --text-h: #14151a;
-  --text-muted: #9aa0ac;
+  --text: #2f3238;
+  --text-h: #000000;
+  --text-muted: #37393d;
   --bg: #eef0f4;
   --surface: #ffffff;
   --border: #e5e7eb;
@@ -19,7 +19,7 @@
 
   --shadow: 0 10px 25px -8px rgba(20, 21, 26, 0.12);
 
-  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
 
   font: 14px/1.5 var(--sans);
   color-scheme: light;

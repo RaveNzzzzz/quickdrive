@@ -48,6 +48,7 @@
 .fin-tab.active {
   background: var(--bg);
   color: var(--text-h);
+  box-shadow: var(--shadow);
 }
 
 .fin-tab-count {

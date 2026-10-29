@@ -35,7 +35,7 @@
 }
 
 .patio-tab.active {
-  background: var(--surface);
+  background: var(--bg);
   color: var(--text-h);
   box-shadow: var(--shadow);
 }

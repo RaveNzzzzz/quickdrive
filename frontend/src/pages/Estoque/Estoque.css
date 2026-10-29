@@ -86,7 +86,14 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 9px 30px 9px 10px;
+  margin-right: 15px;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   cursor: pointer;
 }
 
@@ -126,14 +133,69 @@
   padding: 40px 0 !important;
 }
 
-.estoque-form fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.estoque-form input, .estoque-form select, .estoque-form textarea { font: inherit; color: var(--text-h); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
-.estoque-form textarea { min-height: 90px; resize: vertical; }
-.estoque-form p { color: var(--text-muted); font-size: 14px; }
-.estoque-error { color: var(--danger); }
-.estoque-notice { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
-.estoque-notice button { background: none; border: 0; cursor: pointer; color: var(--text-h); }
-.estoque-list { display: flex; flex-direction: column; gap: 12px; }
-.estoque-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.estoque-lots { overflow-x: auto; }
-@media (max-width: 800px) { .estoque-page .toolbar, .estoque-page .toolbar-left, .estoque-page .toolbar-right { flex-wrap: wrap; } }
+.estoque-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.estoque-form input,
+.estoque-form select,
+.estoque-form textarea {
+  font: inherit;
+  color: var(--text-h);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.estoque-form textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+.estoque-form p {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.estoque-error {
+  color: var(--danger);
+}
+.estoque-notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.estoque-notice button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--text-h);
+}
+.estoque-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.estoque-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.estoque-lots {
+  overflow-x: auto;
+}
+@media (max-width: 800px) {
+  .estoque-page .toolbar,
+  .estoque-page .toolbar-left,
+  .estoque-page .toolbar-right {
+    flex-wrap: wrap;
+  }
+}

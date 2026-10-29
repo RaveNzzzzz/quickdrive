@@ -105,7 +105,7 @@
 }
 
 .btn-outline:hover {
-  background: var(--bg);
+  background: var(--border);
 }
 
 .btn-outline.active {
