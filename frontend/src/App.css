@@ -16,13 +16,42 @@
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: 1fr; 
+  gap: 16px;
+  width: 100%;
 }
 
 .kpi-row-4 {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(1, 1fr);
 }
+
+@media (min-width: 700px) {
+  .kpi-row-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .kpi-row-4 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1500px) {
+  .kpi-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .kpi-row-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 
 .kpi-card-header {
   display: flex;
