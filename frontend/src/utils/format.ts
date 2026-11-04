@@ -85,3 +85,35 @@ export function formatarDocumento(documento: string) {
   if (documento.length === 14) return documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
   return documento
 }
+
+/** Máscara de telefone enquanto o usuário digita: aceita texto parcial ou colado, sempre devolve "(11) 98765-4321". */
+export function mascararTelefone(valor: string) {
+  const digitos = soDigitos(valor).slice(0, 11)
+  if (digitos.length === 0) return ''
+  if (digitos.length <= 2) return `(${digitos}`
+  if (digitos.length <= 6) return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`
+  const corte = digitos.length === 11 ? 7 : 6
+  return `(${digitos.slice(0, 2)}) ${digitos.slice(2, corte)}-${digitos.slice(corte)}`
+}
+
+/** Máscara de CPF/CNPJ enquanto o usuário digita (troca de formato sozinha ao passar de 11 dígitos). */
+export function mascararDocumento(valor: string) {
+  const digitos = soDigitos(valor).slice(0, 14)
+  if (digitos.length <= 11) {
+    return digitos
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+  }
+  return digitos
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+}
+
+/** Máscara de CEP enquanto o usuário digita: "00000-000". */
+export function mascararCep(valor: string) {
+  const digitos = soDigitos(valor).slice(0, 8)
+  return digitos.replace(/(\d{5})(\d{1,3})$/, '$1-$2')
+}

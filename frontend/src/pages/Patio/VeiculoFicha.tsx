@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Car, Pencil, Trash2 } from 'lucide-react'
-import { api, apiUrl } from '../../api/client'
+import { Pencil, Trash2 } from 'lucide-react'
+import { api } from '../../api/client'
 import { Modal } from '../../components/Modal'
 import type { VeiculoApi } from '../../types'
+import { VeiculoCarrossel } from './VeiculoCarrossel'
 import { VeiculoFormModal } from './VeiculoFormModal'
 import { statusLabel } from './veiculoStatus'
 import './Veiculo.css'
@@ -103,6 +104,10 @@ export default function VeiculoFicha() {
         </div>
       )}
 
+      <div className="card ficha-gallery">
+        <VeiculoCarrossel imagens={veiculo.imagens} alt={`${veiculo.marca} ${veiculo.modelo}`} />
+      </div>
+
       <div className="card ficha-header">
         <div className="ficha-header-main">
           <h2>
@@ -137,13 +142,6 @@ export default function VeiculoFicha() {
 
       <div className="ficha-layout">
         <aside className="card ficha-side">
-          <div className={`ficha-photo ${veiculo.imagem_url ? 'has-image' : ''}`}>
-            {veiculo.imagem_url ? (
-              <img src={apiUrl(veiculo.imagem_url)} alt={`Foto de ${veiculo.marca} ${veiculo.modelo}`} />
-            ) : (
-              <Car size={48} aria-hidden="true" />
-            )}
-          </div>
           <div>
             <span className="ficha-side-label">Preço de tabela</span>
             <strong className="ficha-price">{currency.format(veiculo.valor)}</strong>

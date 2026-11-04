@@ -247,6 +247,24 @@ class VeiculoUpdate(_VeiculoValidacoes):
     carroceria_id: int | None = None
 
 
+class ImagemOut(Schema):
+    id: int
+    principal: bool
+
+    # Caminho relativo à raiz da API (o front junta com VITE_API_URL).
+    url: str
+
+    @staticmethod
+    def resolve_url(obj):
+        versao = int(obj.atualizado_em.timestamp() * 1000)  # muda ao trocar a foto -> navegador recarrega
+        return f"/veiculos/{obj.veiculo_id}/imagens/{obj.id}?v={versao}"
+
+
+class ImagensOrdemIn(Schema):
+    # Todos os ids das fotos do veículo, na ordem desejada para o carrossel.
+    ids: list[int]
+
+
 class VeiculoOut(Schema):
     id: int
     ano_modelo: int
@@ -276,19 +294,31 @@ class VeiculoOut(Schema):
     carroceria_id: int
     # Caminho relativo à raiz da API (o front junta com VITE_API_URL). None = sem foto.
     imagem_url: str | None = None
+    # Galeria completa (sem bytes). Só vem preenchida fora da listagem — ver resolve_imagens.
+    imagens: list[ImagemOut] = []
 
     @staticmethod
-    def resolve_imagem_url(obj):
+    def _imagem_principal(obj):
         # "imagem_principal" é preenchido pelo Prefetch da listagem (sem carregar os bytes).
         # Nas demais rotas (get/create/update) ele não existe, então buscamos aqui.
         if hasattr(obj, "imagem_principal"):
-            principal = obj.imagem_principal[0] if obj.imagem_principal else None
-        else:
-            principal = obj.imagens.filter(principal=True).defer("arquivo").first()
+            return obj.imagem_principal[0] if obj.imagem_principal else None
+        return obj.imagens.filter(principal=True).defer("arquivo").first()
+
+    @staticmethod
+    def resolve_imagem_url(obj):
+        principal = VeiculoOut._imagem_principal(obj)
         if principal is None:
             return None
         versao = int(principal.atualizado_em.timestamp() * 1000)  # muda ao trocar a foto -> navegador recarrega
-        return f"/veiculos/{obj.id}/imagem?v={versao}"
+        return f"/veiculos/{obj.id}/imagens/{principal.id}?v={versao}"
+
+    @staticmethod
+    def resolve_imagens(obj):
+        # A listagem (Prefetch com só a capa) não carrega a galeria inteira — só a tela da ficha precisa dela.
+        if hasattr(obj, "imagem_principal"):
+            return []
+        return obj.imagens.defer("arquivo").order_by("ordem", "id")
 
     @staticmethod
     def resolve_marca(obj):

@@ -14,18 +14,19 @@ import { Download, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { api } from '../../api/client'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
+import { DateRangePicker } from '../../components/DateRangePicker'
 import type { Paginated, StatusVendaApi, VendaApi } from '../../types'
 import {
   currency,
   currencyCents,
   currencyCompact,
-  daysFromToday,
   downloadCsv,
   formatDate,
   formatPercent,
   initials,
   percentChange,
 } from '../../utils/format'
+import { inRange, previousRange, type DateRange } from '../Financeiro/financeiroUtils'
 import { avisarVendasAlteradas } from '../../hooks/vendasAlteradas'
 import { formaPagamentoLabel } from './formasPagamento'
 import { metaFaturamento, metaVendasFechadas } from './metas'
@@ -95,22 +96,22 @@ const tabStatus: Record<Tab, VendaStatus | null> = {
 
 const tabs = Object.keys(tabStatus) as Tab[]
 
-const periods = [
-  { value: 30, label: 'Últimos 30 dias' },
-  { value: 90, label: 'Últimos 90 dias' },
-  { value: 0, label: 'Todo o período' },
-]
-
 const statusClass: Record<VendaStatus, string> = {
   Pago: 'vd-pill-pago',
   Pendente: 'vd-pill-pendente',
   Cancelada: 'vd-pill-cancelada',
 }
 
-function inWindow(venda: Venda, from: number, to: number) {
-  // days ago: from (older bound, exclusive of `to`) ... e.g. 0..30
-  const ago = -daysFromToday(venda.date)
-  return ago >= to && ago < from
+function monthRangeOf(monthIndex: number): DateRange {
+  const year = new Date().getFullYear()
+  const from = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate()
+  const to = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  return { from, to }
+}
+
+function currentMonthRange(): DateRange {
+  return monthRangeOf(new Date().getMonth())
 }
 
 function summarize(list: Venda[]) {
@@ -141,7 +142,8 @@ export default function Vendas() {
   const [deleteError, setDeleteError] = useState('')
   // null = formulário fechado; { venda } = editando; {} = nova venda
   const [editor, setEditor] = useState<{ venda?: VendaApi } | null>(null)
-  const [period, setPeriod] = useState(30)
+  const [range, setRange] = useState<DateRange | null>(currentMonthRange)
+  const [monthFilter, setMonthFilter] = useState(String(new Date().getMonth()))
   const [tab, setTab] = useState<Tab>('Todas')
   const [query, setQuery] = useState('')
   const [seller, setSeller] = useState('')
@@ -169,12 +171,12 @@ export default function Vendas() {
   const faturamentoMensal = useMemo(() => monthlyRevenue(vendas), [vendas])
 
   const inPeriod = useMemo(
-    () => (period === 0 ? vendas : vendas.filter((v) => inWindow(v, period, 0))),
-    [vendas, period],
+    () => (range ? vendas.filter((v) => inRange(v.date, range)) : vendas),
+    [vendas, range],
   )
   const previous = useMemo(
-    () => (period === 0 ? null : vendas.filter((v) => inWindow(v, period * 2, period))),
-    [vendas, period],
+    () => (range ? vendas.filter((v) => inRange(v.date, previousRange(range))) : null),
+    [vendas, range],
   )
 
   const current = summarize(inPeriod)
@@ -216,6 +218,16 @@ export default function Vendas() {
       setter(value)
       setPage(1)
     }
+  }
+
+  function handleMonthChange(value: string) {
+    resetPage(setMonthFilter)(value)
+    setRange(value === 'all' ? null : monthRangeOf(Number(value)))
+  }
+
+  function handleRangeChange(next: DateRange) {
+    resetPage(setMonthFilter)('custom')
+    setRange(next)
   }
 
   function exportCsv() {
@@ -383,16 +395,23 @@ export default function Vendas() {
             </select>
             <select
               className="vd-select"
-              value={period}
-              onChange={(e) => resetPage(setPeriod)(Number(e.target.value))}
-              aria-label="Período"
+              value={monthFilter}
+              onChange={(e) => handleMonthChange(e.target.value)}
+              aria-label="Mês"
             >
-              {periods.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
+              <option value="all">Todo o período</option>
+              {monthNames.map((m, i) => (
+                <option key={m} value={i}>
+                  {m}
                 </option>
               ))}
+              {monthFilter === 'custom' && (
+                <option value="custom" disabled>
+                  Período personalizado
+                </option>
+              )}
             </select>
+            <DateRangePicker value={range ?? currentMonthRange()} onChange={handleRangeChange} />
             <button type="button" className="btn btn-outline" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download size={16} />
               Exportar

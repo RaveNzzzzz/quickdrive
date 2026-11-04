@@ -1,7 +1,15 @@
 import { useId, useState, type FormEvent } from 'react'
 import { api } from '../../api/client'
 import { Modal } from '../../components/Modal'
+import { mascararCep, mascararDocumento, mascararTelefone } from '../../utils/format'
 import type { CargoApi, FuncionarioApi, SetorApi } from './funcionariosData'
+
+function mascaraDigitos(key: string, raw: string) {
+  if (key === 'telefone') return mascararTelefone(raw)
+  if (key === 'cpf_cnpj') return mascararDocumento(raw)
+  if (key === 'cep') return mascararCep(raw)
+  return raw
+}
 
 const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 const regimes = [['CLT','CLT'],['PJ','PJ'],['ESTAGIARIO','Estagiário'],['JOVEM_APRENDIZ','Jovem Aprendiz'],['FREELANCER','Freelancer']]
@@ -38,9 +46,10 @@ export function FuncionarioFormModal({ employee, cargos, setores, onClose, onSav
     const digits = ['telefone', 'cpf_cnpj', 'cep'].includes(key)
     return <label className="func-form-field" key={key}>
       <span>{label}{optional ? ' (opcional)' : ''}</span>
-      <input type={type} required={!optional} value={values[key]} maxLength={maxLength}
+      <input type={type} required={!optional} value={digits ? mascaraDigitos(key, values[key]) : values[key]}
+        maxLength={digits ? undefined : maxLength}
         inputMode={digits ? 'numeric' : undefined} {...numeric}
-        onChange={e => update(key, digits ? e.target.value.replace(/\D/g, '') : e.target.value)} />
+        onChange={e => update(key, digits ? e.target.value.replace(/\D/g, '').slice(0, maxLength) : e.target.value)} />
     </label>
   }
   function select(key: string, label: string, options: string[][], disabled = false) {

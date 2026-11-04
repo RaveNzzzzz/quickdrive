@@ -3,7 +3,7 @@ import { api } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { Modal } from '../../components/Modal'
 import type { EtapaApi, NegociacaoApi, NegociacaoEventoApi, Paginated, VeiculoApi } from '../../types'
-import { formatarTelefone, soDigitos } from '../../utils/format'
+import { formatarTelefone, mascararTelefone, soDigitos } from '../../utils/format'
 import { diaMes, etapaTitulo, etapas, etapasAbertas, motivoLabel, origens } from './funil'
 
 // Só o que o formulário usa de cliente e funcionário.
@@ -224,7 +224,7 @@ export function NegociacaoFormModal({ negociacao, etapaInicial, podeEditar, onCl
                   inputMode="tel"
                   placeholder="(11) 98765-4321"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
                 />
               </div>
             </div>

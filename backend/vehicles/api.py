@@ -1,7 +1,8 @@
 from datetime import date, timedelta
 from io import BytesIO
 
-from django.db.models import Prefetch
+from django.db import transaction
+from django.db.models import Max, Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import File, Query, Router, UploadedFile
@@ -21,6 +22,8 @@ from .schemas import (
     CarroceriaOut,
     CombustivelIn,
     CombustivelOut,
+    ImagemOut,
+    ImagensOrdemIn,
     MarcaIn,
     MarcaOut,
     VeiculoIn,
@@ -128,7 +131,9 @@ def delete_veiculo(request, veiculo_id: int):
     return 204, None
 
 
-# --- Foto do veículo (guardada no banco) ---
+# --- Fotos do veículo (guardadas no banco, um veículo pode ter várias) ---
+
+MAX_IMAGENS_POR_VEICULO = 12
 
 
 def _processar_imagem(arquivo: UploadedFile) -> bytes:
@@ -155,36 +160,88 @@ def _processar_imagem(arquivo: UploadedFile) -> bytes:
         raise HttpError(422, "O arquivo enviado não é uma imagem válida.")
 
 
-@router.post("/{int:veiculo_id}/imagem", response=VeiculoOut)
-def enviar_imagem(request, veiculo_id: int, imagem: UploadedFile = File(...)):
-    """Define a foto principal do veículo. Se já existir uma, ela é substituída."""
+def _imagens(veiculo_id: int):
+    return Imagem.objects.filter(veiculo_id=veiculo_id).defer("arquivo")
+
+
+@router.get("/{int:veiculo_id}/imagens", response=list[ImagemOut])
+def listar_imagens(request, veiculo_id: int):
+    get_object_or_404(Veiculo, id=veiculo_id)
+    return _imagens(veiculo_id)
+
+
+@router.post("/{int:veiculo_id}/imagens", response=list[ImagemOut])
+def enviar_imagens(request, veiculo_id: int, imagens: list[UploadedFile] = File(...)):
+    """Adiciona uma ou mais fotos ao veículo. A primeira foto que ele recebe vira a capa."""
     veiculo = get_object_or_404(Veiculo, id=veiculo_id)
-    dados = _processar_imagem(imagem)
-    Imagem.objects.update_or_create(
-        veiculo=veiculo,
-        principal=True,
-        defaults={"arquivo": dados, "content_type": "image/jpeg", "nome": imagem.name[:255]},
-    )
-    return veiculo
+    existentes = Imagem.objects.filter(veiculo=veiculo)
+    if existentes.count() + len(imagens) > MAX_IMAGENS_POR_VEICULO:
+        raise HttpError(422, f"No máximo {MAX_IMAGENS_POR_VEICULO} fotos por veículo.")
+    tem_principal = existentes.filter(principal=True).exists()
+    proxima_ordem = (existentes.aggregate(Max("ordem"))["ordem__max"] or 0) + 1
+    with transaction.atomic():
+        for i, arquivo in enumerate(imagens):
+            dados = _processar_imagem(arquivo)
+            Imagem.objects.create(
+                veiculo=veiculo,
+                arquivo=dados,
+                content_type="image/jpeg",
+                nome=arquivo.name[:255],
+                principal=not tem_principal and i == 0,
+                ordem=proxima_ordem + i,
+            )
+    return _imagens(veiculo_id)
 
 
 # auth=None: o <img> do navegador não consegue enviar o token JWT, então esta rota é pública.
-# Quem não souber o id do veículo não encontra a foto; para algo mais restrito, use outra abordagem.
-@router.get("/{int:veiculo_id}/imagem", auth=None, response={200: None})
-def baixar_imagem(request, veiculo_id: int):
-    imagem = Imagem.objects.filter(veiculo_id=veiculo_id, principal=True).first()
-    if imagem is None:
-        raise HttpError(404, "Este veículo não tem foto.")
+# Quem não souber o id da imagem não encontra a foto; para algo mais restrito, use outra abordagem.
+@router.get("/{int:veiculo_id}/imagens/{int:imagem_id}", auth=None, response={200: None})
+def baixar_imagem(request, veiculo_id: int, imagem_id: int):
+    imagem = get_object_or_404(Imagem, id=imagem_id, veiculo_id=veiculo_id)
     resposta = HttpResponse(bytes(imagem.arquivo), content_type=imagem.content_type)
     resposta["Cache-Control"] = "public, max-age=31536000, immutable"  # o ?v= da URL troca ao atualizar
     return resposta
 
 
-@router.delete("/{int:veiculo_id}/imagem", response={204: None})
-def remover_imagem(request, veiculo_id: int):
+@router.post("/{int:veiculo_id}/imagens/ordenar", response=list[ImagemOut])
+def ordenar_imagens(request, veiculo_id: int, payload: ImagensOrdemIn):
+    """Redefine a ordem das fotos no carrossel. `ids` precisa conter exatamente as fotos atuais do veículo."""
     get_object_or_404(Veiculo, id=veiculo_id)
-    Imagem.objects.filter(veiculo_id=veiculo_id).delete()
-    return 204, None
+    atuais = set(Imagem.objects.filter(veiculo_id=veiculo_id).values_list("id", flat=True))
+    if set(payload.ids) != atuais:
+        raise HttpError(422, "A lista enviada não corresponde às fotos atuais do veículo.")
+    with transaction.atomic():
+        for ordem, imagem_id in enumerate(payload.ids):
+            Imagem.objects.filter(id=imagem_id).update(ordem=ordem)
+    return _imagens(veiculo_id)
+
+
+@router.post("/{int:veiculo_id}/imagens/{int:imagem_id}/principal", response=list[ImagemOut])
+def definir_imagem_principal(request, veiculo_id: int, imagem_id: int):
+    with transaction.atomic():
+        imagem = get_object_or_404(
+            Imagem.objects.select_for_update(), id=imagem_id, veiculo_id=veiculo_id
+        )
+        if not imagem.principal:
+            Imagem.objects.filter(veiculo_id=veiculo_id).exclude(id=imagem_id).update(principal=False)
+            imagem.principal = True
+            imagem.save(update_fields=["principal", "atualizado_em"])
+    return _imagens(veiculo_id)
+
+
+@router.delete("/{int:veiculo_id}/imagens/{int:imagem_id}", response=list[ImagemOut])
+def remover_imagem(request, veiculo_id: int, imagem_id: int):
+    with transaction.atomic():
+        imagem = get_object_or_404(Imagem, id=imagem_id, veiculo_id=veiculo_id)
+        era_principal = imagem.principal
+        imagem.delete()
+        if era_principal:
+            # A foto seguinte do carrossel assume o posto de capa.
+            proxima = Imagem.objects.filter(veiculo_id=veiculo_id).order_by("ordem", "id").first()
+            if proxima is not None:
+                proxima.principal = True
+                proxima.save(update_fields=["principal", "atualizado_em"])
+    return _imagens(veiculo_id)
 
 
 # --- Alertas (card da Home) ---

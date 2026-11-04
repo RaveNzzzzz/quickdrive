@@ -4,15 +4,49 @@ import { Bell, CheckCheck } from 'lucide-react'
 import { alertaKey, alertaLink, useAlertas } from '../hooks/useAlertas'
 import { useDismiss } from './useDismiss'
 
+const READ_KEYS_STORAGE = 'quickdrive:notificacoes-lidas'
+
+function lerLidas(): string[] {
+  try {
+    const salvo = localStorage.getItem(READ_KEYS_STORAGE)
+    return salvo ? (JSON.parse(salvo) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+function salvarLidas(keys: string[]) {
+  try {
+    localStorage.setItem(READ_KEYS_STORAGE, JSON.stringify(keys))
+  } catch {
+    // Sem localStorage (aba privada, etc.): só não persiste entre recarregamentos.
+  }
+}
+
 export function NotificationsMenu() {
   const [open, setOpen] = useState(false)
-  const [readKeys, setReadKeys] = useState<string[]>([])
+  const [readKeys, setReadKeys] = useState<string[]>(lerLidas)
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(ref, open, () => setOpen(false))
 
   const { alertas, error } = useAlertas()
   const lista = alertas ?? []
   const unread = lista.filter((a) => !readKeys.includes(alertaKey(a)))
+
+  function marcarLida(key: string) {
+    setReadKeys((prev) => {
+      if (prev.includes(key)) return prev
+      const proximo = [...prev, key]
+      salvarLidas(proximo)
+      return proximo
+    })
+  }
+
+  function marcarTodasLidas() {
+    const proximo = lista.map(alertaKey)
+    setReadKeys(proximo)
+    salvarLidas(proximo)
+  }
 
   return (
     <div className="topbar-menu-wrap" ref={ref}>
@@ -32,11 +66,7 @@ export function NotificationsMenu() {
           <div className="topbar-dropdown-header">
             <strong>Notificações</strong>
             {unread.length > 0 && (
-              <button
-                type="button"
-                className="topbar-link"
-                onClick={() => setReadKeys(lista.map(alertaKey))}
-              >
+              <button type="button" className="topbar-link" onClick={marcarTodasLidas}>
                 <CheckCheck size={14} />
                 Marcar todas como lidas
               </button>
@@ -46,6 +76,7 @@ export function NotificationsMenu() {
           <ul>
             {lista.map((alerta) => {
               const link = alertaLink(alerta)
+              const key = alertaKey(alerta)
               const conteudo = (
                 <>
                   <span className={`alert-dot alert-dot-${alerta.nivel}`} />
@@ -56,7 +87,11 @@ export function NotificationsMenu() {
                 </>
               )
               return (
-                <li key={alertaKey(alerta)} className={readKeys.includes(alertaKey(alerta)) ? 'read' : ''}>
+                <li
+                  key={key}
+                  className={readKeys.includes(key) ? 'read' : ''}
+                  onClick={() => marcarLida(key)}
+                >
                   {link ? (
                     <Link to={link} className="topbar-notification-link" onClick={() => setOpen(false)}>
                       {conteudo}

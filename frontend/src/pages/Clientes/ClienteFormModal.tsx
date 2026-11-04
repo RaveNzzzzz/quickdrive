@@ -2,7 +2,7 @@ import { useId, useState, type FormEvent } from 'react'
 import { api } from '../../api/client'
 import { Modal } from '../../components/Modal'
 import type { ClienteApi } from '../../types'
-import { formatarDocumento, formatarTelefone, soDigitos } from '../../utils/format'
+import { formatarDocumento, formatarTelefone, mascararCep, mascararDocumento, mascararTelefone, soDigitos } from '../../utils/format'
 import './ClienteFormModal.css'
 
 // Mesmos valores de UF (backend/people/enums.py).
@@ -138,7 +138,7 @@ export function ClienteFormModal({ cliente, inicial, aviso, textoSalvar, onClose
                 inputMode="numeric"
                 placeholder={fisica ? '000.000.000-00' : '00.000.000/0000-00'}
                 value={documento}
-                onChange={(e) => setDocumento(e.target.value)}
+                onChange={(e) => setDocumento(mascararDocumento(e.target.value))}
                 required
               />
             </div>
@@ -157,7 +157,7 @@ export function ClienteFormModal({ cliente, inicial, aviso, textoSalvar, onClose
                 inputMode="tel"
                 placeholder="(11) 98765-4321"
                 value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
+                onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
                 required
               />
             </div>
@@ -177,7 +177,7 @@ export function ClienteFormModal({ cliente, inicial, aviso, textoSalvar, onClose
                 inputMode="numeric"
                 placeholder="00000-000"
                 value={cep}
-                onChange={(e) => setCep(e.target.value)}
+                onChange={(e) => setCep(mascararCep(e.target.value))}
                 required
               />
             </div>
