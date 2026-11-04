@@ -1,8 +1,24 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { mascararCep, mascararDocumento, mascararTelefone } from '../utils/format'
 import { AuthShell } from './AuthShell'
 import { PasswordFields } from './PasswordFields'
 import './AuthForms.css'
+
+// Tamanho do texto já mascarado (não dos dígitos) — limita o campo sem cortar a formatação.
+const MASCARA_MAX_LENGTH: Record<string, number> = {
+  phone: '(11) 98765-4321'.length,
+  cpf: '000.000.000-00'.length,
+  cep: '00000-000'.length,
+}
+
+function mascaraDigitos(key: string, raw: string) {
+  if (key === 'phone') return mascararTelefone(raw)
+  // CPF só (cadastro é sempre de pessoa física) — capa em 11 dígitos pra mascararDocumento não virar CNPJ.
+  if (key === 'cpf') return mascararDocumento(raw.replace(/\D/g, '').slice(0, 11))
+  if (key === 'cep') return mascararCep(raw)
+  return raw
+}
 
 const states = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 
@@ -14,12 +30,13 @@ export default function Signup() {
   const [values, setValues] = useState<Record<string, string>>({})
 
   function field(key: string, label: string, type = 'text', required = true, maxLength?: number) {
+    const digits = key in MASCARA_MAX_LENGTH
     return <label className="login-field" key={key}>
       <span className="login-label">{label}{!required && ' (opcional)'}</span>
-      <input name={key} type={type} required={required} maxLength={maxLength} value={values[key] ?? ''}
-        onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))}
-        {...(key === 'cpf' ? { inputMode: 'numeric' as const, pattern: '[0-9]{11}', title: 'Informe 11 dígitos, sem pontuação.' } : {})}
-        {...(key === 'cep' ? { inputMode: 'numeric' as const, pattern: '[0-9]{8}', title: 'Informe 8 dígitos, sem pontuação.' } : {})}
+      <input name={key} type={type} required={required} maxLength={digits ? MASCARA_MAX_LENGTH[key] : maxLength}
+        value={values[key] ?? ''}
+        inputMode={digits ? 'numeric' : undefined}
+        onChange={e => setValues(prev => ({ ...prev, [key]: digits ? mascaraDigitos(key, e.target.value) : e.target.value }))}
         {...(type === 'date' ? { max: new Date().toLocaleDateString('en-CA') } : {})} />
     </label>
   }
@@ -43,12 +60,12 @@ export default function Signup() {
           {field('first_name', 'Nome', 'text', true, 150)}
           {field('last_name', 'Sobrenome', 'text', true, 150)}
           {field('email', 'E-mail', 'email', true, 254)}
-          {field('phone', 'Telefone com DDD', 'tel', true, 20)}
-          {field('cpf', 'CPF (somente números)', 'text', true, 11)}
+          {field('phone', 'Telefone com DDD', 'tel')}
+          {field('cpf', 'CPF', 'text')}
           {field('birth_date', 'Data de nascimento', 'date', false)}
         </>}
         {step === 1 && <>
-          {field('cep', 'CEP (somente números)', 'text', true, 8)}
+          {field('cep', 'CEP', 'text')}
           {field('street', 'Rua', 'text', true, 200)}
           {field('number', 'Número', 'text', true, 20)}
           {field('complement', 'Complemento', 'text', false, 200)}

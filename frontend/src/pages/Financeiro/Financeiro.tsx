@@ -4,6 +4,7 @@ import { api } from '../../api/client'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import { Modal } from '../../components/Modal'
 import type { ContaPagarApi, ContaReceberApi, Paginated } from '../../types'
+import type { FuncionarioApi } from '../Funcionarios/funcionariosData'
 import { ContaFormModal } from './ContaFormModal'
 import { ContasTable, type ContasTab } from './ContasTable'
 import { CategoriasChart, FluxoCaixaChart } from './FinanceiroCharts'
@@ -31,6 +32,8 @@ type Kpi = {
   change: number | null
   // Whether an increase is good news (false for expenses)
   goodWhenUp: boolean
+  // Linha extra destacada (ex.: a folha salarial já incluída no total de "A pagar")
+  highlight?: string
 }
 
 function ChangeBadge({ change, goodWhenUp }: { change: number | null; goodWhenUp: boolean }) {
@@ -61,6 +64,7 @@ function summarize(list: Conta[]) {
 export default function Financeiro() {
   const today = todayIso()
   const [contas, setContas] = useState<Conta[]>([])
+  const [payroll, setPayroll] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -83,14 +87,17 @@ export default function Financeiro() {
     Promise.all([
       api<Paginated<ContaReceberApi>>('/financeiro/contas-receber?limit=1000'),
       api<Paginated<ContaPagarApi>>('/financeiro/contas-pagar?limit=1000'),
+      // Folha salarial: soma fixa dos ativos, não entra como conta até alguém lançá-la.
+      api<Paginated<FuncionarioApi>>('/funcionarios?ativo=true&limit=1000'),
     ])
-      .then(([receber, pagar]) => {
+      .then(([receber, pagar, funcionarios]) => {
         if (!active) return
         // Contas canceladas não entram nas contas do caixa.
         setContas([
           ...receber.items.filter((c) => c.status !== 'cancelado').map(fromContaReceber),
           ...pagar.items.filter((c) => c.status !== 'cancelado').map(fromContaPagar),
         ])
+        setPayroll(funcionarios.items.reduce((sum, f) => sum + Number(f.salario), 0))
       })
       .catch((err: Error) => {
         if (active) setError(err.message)
@@ -131,10 +138,11 @@ export default function Financeiro() {
     },
     {
       label: 'A pagar',
-      value: current.pagarAberto,
+      value: current.pagarAberto + payroll,
       helper: `${current.pagarAbertoCount} em aberto · ${currency.format(current.pago)} já pago`,
       change: percentChange(current.pagarAberto, previous.pagarAberto),
       goodWhenUp: false,
+      highlight: payroll > 0 ? `Inclui ${currency.format(payroll)} de folha salarial fixa prevista` : undefined,
     },
   ]
 
@@ -240,6 +248,7 @@ export default function Financeiro() {
             </div>
             <strong className="kpi-value">{currency.format(kpi.value)}</strong>
             <p className="kpi-helper">{kpi.helper}</p>
+            {kpi.highlight && <span className="fx-kpi-highlight">{kpi.highlight}</span>}
           </div>
         ))}
 

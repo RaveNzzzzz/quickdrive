@@ -14,6 +14,13 @@ export type Paginated<T> = {
 
 export type OpcaoApi = { id: number; nome: string }
 
+export type ImagemVeiculoApi = {
+  id: number
+  principal: boolean
+  /** Caminho da foto (ex.: /veiculos/3/imagens/9?v=123). */
+  url: string
+}
+
 export type VeiculoApi = {
   id: number
   ano_modelo: number
@@ -41,8 +48,10 @@ export type VeiculoApi = {
   cambio_id: number
   combustivel_id: number
   carroceria_id: number
-  /** Caminho da foto principal (ex.: /veiculos/3/imagem?v=123) ou null se não tiver. */
+  /** Caminho da foto principal/capa (ex.: /veiculos/3/imagens/9?v=123) ou null se não tiver. */
   imagem_url: string | null
+  /** Galeria completa. Só vem preenchida ao buscar um veículo específico (não na listagem). */
+  imagens: ImagemVeiculoApi[]
 }
 
 export type VeiculoPayload = {

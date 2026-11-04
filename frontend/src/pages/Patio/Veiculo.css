@@ -221,16 +221,6 @@
   padding: 20px;
 }
 
-.ficha-photo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 4 / 3;
-  border-radius: 12px;
-  background: var(--bg);
-  color: var(--text-muted);
-}
-
 .ficha-side-label {
   display: block;
   margin-bottom: 2px;
@@ -285,65 +275,270 @@
 }
 
 
-/* ---------- Foto do veículo ---------- */
+/* ---------- Foto do veículo (card do pátio) ---------- */
 
-/* Foto no card do pátio e na ficha */
-.vehicle-photo.has-image,
-.ficha-photo.has-image {
+.vehicle-photo.has-image {
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+}
+
+.vehicle-photo.has-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* ---------- Carrossel de fotos (ficha do veículo) ---------- */
+
+.ficha-gallery {
   padding: 0;
   overflow: hidden;
 }
 
-.vehicle-photo.has-image {
-  height: auto;
-  aspect-ratio: 16 / 10;
-}
-
-.vehicle-photo.has-image img,
-.ficha-photo.has-image img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Campo de foto dentro do modal */
-.vform-photo {
+.vcarrossel {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.vform-photo-preview {
+.vcarrossel-hero {
+  position: relative;
   display: flex;
-  flex: 0 0 160px;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-radius: 10px;
+  height: clamp(240px, 30vw, 420px);
   background: var(--bg);
+  overflow: hidden;
+}
+
+.vcarrossel-empty {
   color: var(--text-muted);
 }
 
-.vform-photo-preview img {
+.vcarrossel-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 4px;
+}
+
+.vcarrossel-main-wrap {
+  position: relative;
+  flex: 0 0 64%;
+  height: 100%;
+}
+
+.vcarrossel-main {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.vcarrossel-peek {
+  flex: 0 0 18%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.vcarrossel-peek:hover {
+  opacity: 0.9;
+}
+
+@media (max-width: 640px) {
+  .vcarrossel-peek {
+    display: none;
+  }
+
+  .vcarrossel-main-wrap {
+    flex-basis: 100%;
+  }
+}
+
+.vcarrossel-edge-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--text-h);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.vcarrossel-edge-nav:hover {
+  background: var(--bg);
+}
+
+.vcarrossel-edge-prev {
+  left: 12px;
+}
+
+.vcarrossel-edge-next {
+  right: 12px;
+}
+
+.vcarrossel-counter {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(20, 21, 26, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vcarrossel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding-bottom: 14px;
+}
+
+.vcarrossel-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+}
+
+.vcarrossel-dot.active {
+  background: var(--accent);
+  width: 16px;
+  border-radius: 999px;
+}
+
+/* Campo de fotos dentro do modal (grade com várias) */
+.vform-fotos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vform-foto-item {
+  position: relative;
+  width: 96px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.vform-foto-item img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.vform-photo-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
+.vform-foto-item.removida img {
+  opacity: 0.35;
 }
 
-.vform-photo-buttons {
+.vform-foto-item[draggable='true'] {
+  cursor: grab;
+}
+
+.vform-foto-item.arrastando {
+  opacity: 0.4;
+}
+
+.vform-foto-grip {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  color: #fff;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+}
+
+.vform-foto-capa,
+.vform-foto-nova {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.vform-foto-capa {
+  background: var(--accent);
+}
+
+.vform-foto-nova {
+  background: var(--success);
+}
+
+.vform-foto-actions {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+}
+
+.vform-foto-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(20, 21, 26, 0.6);
+  color: #fff;
+  cursor: pointer;
+}
+
+.vform-foto-actions button:hover {
+  background: rgba(20, 21, 26, 0.8);
+}
+
+.vform-foto-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 96px;
+  height: 72px;
+  flex-shrink: 0;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vform-foto-add:hover {
+  background: var(--bg);
 }
 
 /* O <input type="file"> fica escondido; o <label> faz o papel de botão. */
@@ -355,19 +550,9 @@
   clip: rect(0 0 0 0);
 }
 
-.vform-file:focus-visible + .btn {
+.vform-file:focus-visible + .vform-foto-add {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-@media (max-width: 520px) {
-  .vform-photo {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .vform-photo-preview {
-    flex-basis: auto;
-  }
 }
 /* ---------- Botões de criar/editar opção (marca, câmbio...) ao lado do rótulo ---------- */
 

@@ -72,14 +72,18 @@ class Revisao(models.Model):
 
 
 class Imagem(models.Model):
-    """Foto do veículo guardada DENTRO do banco (coluna bytea no Postgres)."""
+    """Foto do veículo guardada DENTRO do banco (coluna bytea no Postgres). Um veículo pode ter várias."""
 
     arquivo = models.BinaryField(default=b"", editable=False)
     content_type = models.CharField(max_length=50, default="image/jpeg")
     nome = models.CharField(max_length=255, blank=True, default="")
     principal = models.BooleanField(default=False)
+    ordem = models.PositiveIntegerField(default=0)  # define a posição no carrossel
     atualizado_em = models.DateTimeField(auto_now=True)
     veiculo = models.ForeignKey(Veiculo, on_delete=models.CASCADE, related_name="imagens")
+
+    class Meta:
+        ordering = ["ordem", "id"]
 
     def __str__(self):
         return f"Imagem {self.pk} de {self.veiculo_id}"

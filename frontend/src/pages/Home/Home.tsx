@@ -23,7 +23,8 @@ import type {
 } from "../../types";
 import { alertaKey, alertaLink, useAlertas } from "../../hooks/useAlertas";
 import { currencyCompact, percentChange } from "../../utils/format";
-import { todayIso } from "../Financeiro/financeiroUtils";
+import { DateRangePicker } from "../../components/DateRangePicker";
+import { inRange, todayIso, type DateRange } from "../Financeiro/financeiroUtils";
 import "./Home.css";
 
 function AlertasCard() {
@@ -268,6 +269,27 @@ export default function Home() {
   const mesAnterior = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, "0")}`;
   const helperAnterior = `vs. ${monthFull.format(anterior)}/${anterior.getFullYear()}`;
 
+  const fullYearRange: DateRange = { from: `${year}-01-01`, to: `${year}-12-31` };
+  const [range, setRange] = useState<DateRange>(fullYearRange);
+  const [monthFilter, setMonthFilter] = useState("all");
+
+  function monthRangeOf(monthIndex: number): DateRange {
+    const from = `${year}-${String(monthIndex + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(Number(year), monthIndex + 1, 0).getDate();
+    const to = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    return { from, to };
+  }
+
+  function handleMonthChange(value: string) {
+    setMonthFilter(value);
+    setRange(value === "all" ? fullYearRange : monthRangeOf(Number(value)));
+  }
+
+  function handleRangeChange(next: DateRange) {
+    setRange(next);
+    setMonthFilter("all");
+  }
+
   const resumo = useMemo(() => {
     if (!dados) return null;
     const pagas = dados.vendas.filter((v) => v.status === "pago");
@@ -313,19 +335,28 @@ export default function Home() {
         count: pendentes.length,
       },
       caixa,
-      chart: monthNames.map((month, i) => {
-        const prefixo = `${year}-${String(i + 1).padStart(2, "0")}`;
-        return {
-          month,
-          compras: total(dados.compras, prefixo, (c) => c.data_compra, compra),
-          vendas: total(pagas, prefixo, (v) => v.data_venda, venda),
-        };
-      }),
+      chart: monthNames
+        .map((month, i) => {
+          const inicio = `${year}-${String(i + 1).padStart(2, "0")}-01`;
+          const fim = `${year}-${String(i + 1).padStart(2, "0")}-${String(new Date(Number(year), i + 1, 0).getDate()).padStart(2, "0")}`;
+          return { month, i, dentroDoPeriodo: inicio <= range.to && fim >= range.from };
+        })
+        .filter((m) => m.dentroDoPeriodo)
+        .map(({ month, i }) => {
+          const prefixo = `${year}-${String(i + 1).padStart(2, "0")}`;
+          const comprasNoPeriodo = dados.compras.filter((c) => inRange(c.data_compra, range));
+          const vendasNoPeriodo = pagas.filter((v) => inRange(v.data_venda, range));
+          return {
+            month,
+            compras: total(comprasNoPeriodo, prefixo, (c) => c.data_compra, compra),
+            vendas: total(vendasNoPeriodo, prefixo, (v) => v.data_venda, venda),
+          };
+        }),
       ultimas: [...dados.vendas]
         .sort((a, b) => b.data_venda.localeCompare(a.data_venda) || b.id - a.id)
         .slice(0, 4),
     };
-  }, [dados, mes, mesAnterior, year]);
+  }, [dados, mes, mesAnterior, year, range]);
 
   const carregando = resumo === null && !error;
   const valor = (n: number) => (resumo ? currency.format(n) : "…");
@@ -398,10 +429,30 @@ export default function Home() {
           <div className="chart-card">
             <div className="chart-card-header">
               <span className="chart-tab">{year}</span>
-              <Link to="/vendas" className="chart-more">
-                Ver vendas
-              </Link>
+              <div className="chart-filters">
+                <label className="chart-month-select">
+                  <span>Mês</span>
+                  <select
+                    value={monthFilter}
+                    onChange={(e) => handleMonthChange(e.target.value)}
+                  >
+                    <option value="all">Todos os meses</option>
+                    {monthNames.map((m, i) => (
+                      <option key={m} value={i}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <DateRangePicker value={range} onChange={handleRangeChange} />
+                <Link to="/vendas" className="chart-more">
+                  Ver vendas
+                </Link>
+              </div>
             </div>
+            {resumo && resumo.chart.length === 0 ? (
+              <p className="chart-empty">Nenhum dado para o período selecionado.</p>
+            ) : (
             <ResponsiveContainer width="100%" height={260}>
               <LineChart
                 data={resumo?.chart ?? []}
@@ -450,6 +501,7 @@ export default function Home() {
                 />
               </LineChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
         <div className="card transactions-card">

@@ -1,16 +1,17 @@
 import {
   useEffect,
   useId,
-  useMemo,
+  useRef,
   useState,
   type ChangeEvent,
+  type DragEvent,
   type FormEvent,
   type ReactNode,
 } from 'react'
-import { Car, Pencil, Plus } from 'lucide-react'
+import { GripVertical, Pencil, Plus, Star, Undo2, X } from 'lucide-react'
 import { api, apiUrl } from '../../api/client'
 import { Modal } from '../../components/Modal'
-import type { OpcaoApi, VeiculoApi, VeiculoPayload } from '../../types'
+import type { ImagemVeiculoApi, OpcaoApi, VeiculoApi, VeiculoPayload } from '../../types'
 import { STATUS_OPTIONS } from './veiculoStatus'
 import { OpcaoFormModal } from './OpcaoFormModal'
 import { OPCAO_ROTULOS, type TipoOpcao } from './opcoes'
@@ -64,6 +65,14 @@ type Options = {
 
 type SelectKey = 'marca_id' | 'cambio_id' | 'combustivel_id' | 'carroceria_id'
 
+// Um item do carrossel em edição: já salvo no veículo, ou escolhido agora e ainda não enviado.
+type FotoSlot =
+  | { kind: 'existente'; id: number; foto: ImagemVeiculoApi; removida: boolean }
+  | { kind: 'nova'; tempId: string; file: File; url: string }
+
+// Qual foto (já salva ou nova) é a capa. `null` = nenhuma definida ainda.
+type Principal = { kind: 'existente'; id: number } | { kind: 'nova'; tempId: string } | null
+
 type Props = {
   mode: 'create' | 'edit'
   /** Obrigatório no modo "edit": o veículo que está sendo editado. */
@@ -75,6 +84,7 @@ type Props = {
 
 const FOTO_TIPOS = ['image/jpeg', 'image/png', 'image/webp']
 const FOTO_MAX_MB = 5
+const MAX_FOTOS = 12
 
 function toFormValues(v?: VeiculoApi): FormValues {
   return {
@@ -187,44 +197,97 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
     opcao?: OpcaoApi
   } | null>(null)
 
-  // Foto: `foto` é o arquivo escolhido agora; `removerFoto` marca que a foto atual deve ser apagada.
-  const [foto, setFoto] = useState<File | null>(null)
-  const [removerFoto, setRemoverFoto] = useState(false)
+  // Lista única de fotos na ordem do carrossel: as já salvas (podem ser marcadas para remoção,
+  // com opção de desfazer) e as recém-escolhidas (ainda não enviadas). Dá para arrastar para reordenar
+  // e marcar qualquer uma — já salva ou nova — como capa antes mesmo de salvar.
+  const [slots, setSlots] = useState<FotoSlot[]>(() =>
+    (target?.imagens ?? []).map((foto) => ({ kind: 'existente', id: foto.id, foto, removida: false })),
+  )
+  const [principal, setPrincipal] = useState<Principal>(() => {
+    const atual = target?.imagens.find((i) => i.principal)
+    return atual ? { kind: 'existente', id: atual.id } : null
+  })
   const [fotoError, setFotoError] = useState('')
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
 
-  // Endereço temporário para mostrar o arquivo escolhido antes de enviar.
-  const fotoPreview = useMemo(() => (foto ? URL.createObjectURL(foto) : null), [foto])
+  // Libera os endereços temporários (blob:) das fotos novas quando o modal fecha.
+  const slotsRef = useRef(slots)
+  useEffect(() => {
+    slotsRef.current = slots
+  }, [slots])
   useEffect(() => {
     return () => {
-      if (fotoPreview) URL.revokeObjectURL(fotoPreview)
+      slotsRef.current.forEach((s) => {
+        if (s.kind === 'nova') URL.revokeObjectURL(s.url)
+      })
     }
-  }, [fotoPreview])
+  }, [])
 
-  const fotoAtual = target?.imagem_url && !removerFoto ? apiUrl(target.imagem_url) : null
-  const fotoMostrada = fotoPreview ?? fotoAtual
+  const totalFotos = slots.filter((s) => s.kind === 'nova' || !s.removida).length
 
-  function handleFotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+  function handleFotosChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
     event.target.value = '' // permite escolher o mesmo arquivo de novo depois
-    if (!file) return
+    if (!files.length) return
 
-    if (!FOTO_TIPOS.includes(file.type)) {
-      setFotoError('Envie uma imagem JPG, PNG ou WEBP.')
+    const restantes = MAX_FOTOS - totalFotos
+    if (files.length > restantes) {
+      setFotoError(
+        restantes > 0
+          ? `Faltam ${restantes} vaga${restantes === 1 ? '' : 's'} para fotos (máximo ${MAX_FOTOS}).`
+          : `Você já atingiu o máximo de ${MAX_FOTOS} fotos.`,
+      )
       return
     }
-    if (file.size > FOTO_MAX_MB * 1024 * 1024) {
-      setFotoError(`A imagem deve ter no máximo ${FOTO_MAX_MB} MB.`)
-      return
+    for (const file of files) {
+      if (!FOTO_TIPOS.includes(file.type)) {
+        setFotoError('Envie imagens JPG, PNG ou WEBP.')
+        return
+      }
+      if (file.size > FOTO_MAX_MB * 1024 * 1024) {
+        setFotoError(`Cada imagem deve ter no máximo ${FOTO_MAX_MB} MB.`)
+        return
+      }
     }
     setFotoError('')
-    setFoto(file)
-    setRemoverFoto(false)
+    const novos: FotoSlot[] = files.map((file) => ({
+      kind: 'nova',
+      tempId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      file,
+      url: URL.createObjectURL(file),
+    }))
+    setSlots((prev) => [...prev, ...novos])
   }
 
-  function handleRemoverFoto() {
-    setFoto(null)
-    setFotoError('')
-    if (target?.imagem_url) setRemoverFoto(true)
+  function removerFotoNova(tempId: string) {
+    setSlots((prev) => {
+      const alvo = prev.find((s) => s.kind === 'nova' && s.tempId === tempId)
+      if (alvo?.kind === 'nova') URL.revokeObjectURL(alvo.url)
+      return prev.filter((s) => !(s.kind === 'nova' && s.tempId === tempId))
+    })
+    setPrincipal((prev) => (prev?.kind === 'nova' && prev.tempId === tempId ? null : prev))
+  }
+
+  function alternarRemocaoExistente(id: number) {
+    setSlots((prev) =>
+      prev.map((s) => (s.kind === 'existente' && s.id === id ? { ...s, removida: !s.removida } : s)),
+    )
+    setPrincipal((prev) => (prev?.kind === 'existente' && prev.id === id ? null : prev))
+  }
+
+  // Arrastar para reordenar: atualiza a posição a cada vez que o item arrastado passa por cima de outro.
+  function handleDragOver(index: number) {
+    return (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      if (dragIndex === null || dragIndex === index) return
+      setSlots((prev) => {
+        const copia = [...prev]
+        const [movido] = copia.splice(dragIndex, 1)
+        copia.splice(index, 0, movido)
+        return copia
+      })
+      setDragIndex(index)
+    }
   }
 
   // Carrega as opções dos campos de seleção (marca, câmbio, combustível, carroceria).
@@ -390,21 +453,60 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
             body: JSON.stringify(payload),
           })
 
-      // Passo 2: a foto vai separada, em FormData (arquivo não cabe em JSON).
+      // Passo 2: as fotos vão separadas (arquivo não cabe em JSON): remover, enviar as novas,
+      // gravar a ordem final (já com os ids reais) e, por fim, marcar a capa.
       let final = saved
       let warning: string | undefined
-      try {
-        if (foto) {
-          const body = new FormData()
-          body.append('imagem', foto)
-          final = await api<VeiculoApi>(`/veiculos/${saved.id}/imagem`, { method: 'POST', body })
-        } else if (removerFoto && target?.imagem_url) {
-          await api<null>(`/veiculos/${saved.id}/imagem`, { method: 'DELETE' })
-          final = { ...saved, imagem_url: null }
+
+      const idsOriginais = target?.imagens.map((i) => i.id) ?? []
+      const principalOriginalId = target?.imagens.find((i) => i.principal)?.id ?? null
+      const ativos = slots.filter((s) => s.kind === 'nova' || !s.removida)
+      const removidos = slots.filter((s): s is Extract<FotoSlot, { kind: 'existente' }> => s.kind === 'existente' && s.removida)
+      const novas = ativos.filter((s): s is Extract<FotoSlot, { kind: 'nova' }> => s.kind === 'nova')
+      const ordemExistentesAtual = ativos.filter((s) => s.kind === 'existente').map((s) => s.id)
+      const ordemMudou = ordemExistentesAtual.join(',') !== idsOriginais.filter((id) => ordemExistentesAtual.includes(id)).join(',')
+      const principalAtualRef = principal?.kind === 'existente' ? principal.id : principal?.kind === 'nova' ? 'nova' : null
+      const principalMudou = principalAtualRef !== principalOriginalId
+      const tocouFotos = removidos.length > 0 || novas.length > 0 || ordemMudou || principalMudou
+
+      if (tocouFotos) {
+        try {
+          for (const slot of removidos) {
+            await api<unknown>(`/veiculos/${saved.id}/imagens/${slot.id}`, { method: 'DELETE' })
+          }
+
+          let idsReaisNovas: number[] = []
+          if (novas.length) {
+            const body = new FormData()
+            novas.forEach((slot) => body.append('imagens', slot.file))
+            const resposta = await api<ImagemVeiculoApi[]>(`/veiculos/${saved.id}/imagens`, {
+              method: 'POST',
+              body,
+            })
+            // As fotos novas entram no fim da lista, na mesma ordem em que foram enviadas.
+            idsReaisNovas = resposta.slice(-novas.length).map((i) => i.id)
+          }
+          const idReal = new Map(novas.map((slot, i) => [slot.tempId, idsReaisNovas[i]]))
+
+          const ordemFinal = ativos.map((s) => (s.kind === 'existente' ? s.id : idReal.get(s.tempId)!))
+          if (ordemFinal.length) {
+            await api<unknown>(`/veiculos/${saved.id}/imagens/ordenar`, {
+              method: 'POST',
+              body: JSON.stringify({ ids: ordemFinal }),
+            })
+          }
+
+          const principalFinal =
+            principal?.kind === 'existente' ? principal.id : principal?.kind === 'nova' ? idReal.get(principal.tempId) : undefined
+          if (principalFinal !== undefined) {
+            await api<unknown>(`/veiculos/${saved.id}/imagens/${principalFinal}/principal`, { method: 'POST' })
+          }
+
+          final = await api<VeiculoApi>(`/veiculos/${saved.id}`)
+        } catch (err) {
+          const motivo = err instanceof Error ? err.message : 'erro desconhecido'
+          warning = `Veículo salvo, mas houve um problema com as fotos: ${motivo}`
         }
-      } catch (err) {
-        const motivo = err instanceof Error ? err.message : 'erro desconhecido'
-        warning = `Veículo salvo, mas a foto não foi atualizada: ${motivo}`
       }
       onSaved(final, warning)
     } catch (err) {
@@ -457,46 +559,93 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
         )}
 
         <fieldset>
-          <legend>Foto (opcional)</legend>
-          <div className="vform-photo">
-            <div className="vform-photo-preview">
-              {fotoMostrada ? (
-                <img src={fotoMostrada} alt="Pré-visualização da foto do veículo" />
-              ) : (
-                <Car size={32} aria-hidden="true" />
-              )}
-            </div>
-            <div className="vform-photo-actions">
-              <div className="vform-photo-buttons">
-                <input
-                  id={`${uid}-foto`}
-                  className="vform-file"
-                  type="file"
-                  accept={FOTO_TIPOS.join(',')}
-                  onChange={handleFotoChange}
-                  disabled={saving}
-                />
-                <label htmlFor={`${uid}-foto`} className="btn btn-outline">
-                  {fotoMostrada ? 'Trocar foto' : 'Escolher foto'}
-                </label>
-                {fotoMostrada && (
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={handleRemoverFoto}
-                    disabled={saving}
+          <legend>Fotos (opcional)</legend>
+          <div className="vform-fotos">
+            <div className="vform-fotos-grid">
+              {slots.map((slot, index) => {
+                const isNova = slot.kind === 'nova'
+                const removida = slot.kind === 'existente' && slot.removida
+                const ehPrincipal =
+                  !removida &&
+                  ((slot.kind === 'existente' && principal?.kind === 'existente' && principal.id === slot.id) ||
+                    (slot.kind === 'nova' && principal?.kind === 'nova' && principal.tempId === slot.tempId))
+                const src = slot.kind === 'existente' ? apiUrl(slot.foto.url) : slot.url
+                const key = slot.kind === 'existente' ? `e-${slot.id}` : `n-${slot.tempId}`
+                const podeArrastar = !saving && !removida
+
+                return (
+                  <div
+                    key={key}
+                    className={`vform-foto-item ${removida ? 'removida' : ''} ${dragIndex === index ? 'arrastando' : ''}`}
+                    draggable={podeArrastar}
+                    onDragStart={() => setDragIndex(index)}
+                    onDragOver={handleDragOver(index)}
+                    onDrop={(event) => event.preventDefault()}
+                    onDragEnd={() => setDragIndex(null)}
                   >
-                    Remover foto
-                  </button>
-                )}
-              </div>
-              <p className="vform-hint">JPG, PNG ou WEBP, até {FOTO_MAX_MB} MB.</p>
-              {fotoError && (
-                <p className="vform-error" role="alert">
-                  {fotoError}
-                </p>
+                    {podeArrastar && <GripVertical size={12} className="vform-foto-grip" aria-hidden="true" />}
+                    <img src={src} alt={isNova ? 'Nova foto escolhida' : 'Foto do veículo'} />
+                    {isNova && !removida && <span className="vform-foto-nova">Nova</span>}
+                    {ehPrincipal && <span className="vform-foto-capa">Capa</span>}
+                    <div className="vform-foto-actions">
+                      {!removida && !ehPrincipal && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPrincipal(
+                              slot.kind === 'existente' ? { kind: 'existente', id: slot.id } : { kind: 'nova', tempId: slot.tempId },
+                            )
+                          }
+                          disabled={saving}
+                          aria-label="Definir como capa"
+                          title="Definir como capa"
+                        >
+                          <Star size={13} aria-hidden="true" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          slot.kind === 'existente' ? alternarRemocaoExistente(slot.id) : removerFotoNova(slot.tempId)
+                        }
+                        disabled={saving}
+                        aria-label={removida ? 'Desfazer remoção' : 'Remover foto'}
+                        title={removida ? 'Desfazer remoção' : 'Remover foto'}
+                      >
+                        {removida ? <Undo2 size={13} aria-hidden="true" /> : <X size={13} aria-hidden="true" />}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {totalFotos < MAX_FOTOS && (
+                <>
+                  <input
+                    id={`${uid}-fotos`}
+                    className="vform-file"
+                    type="file"
+                    accept={FOTO_TIPOS.join(',')}
+                    multiple
+                    onChange={handleFotosChange}
+                    disabled={saving}
+                  />
+                  <label htmlFor={`${uid}-fotos`} className="vform-foto-add">
+                    <Plus size={18} aria-hidden="true" />
+                    Adicionar
+                  </label>
+                </>
               )}
             </div>
+            <p className="vform-hint">
+              JPG, PNG ou WEBP, até {FOTO_MAX_MB} MB cada · {totalFotos}/{MAX_FOTOS} fotos · arraste para reordenar ·
+              clique na estrela para definir a capa
+            </p>
+            {fotoError && (
+              <p className="vform-error" role="alert">
+                {fotoError}
+              </p>
+            )}
           </div>
         </fieldset>
 
