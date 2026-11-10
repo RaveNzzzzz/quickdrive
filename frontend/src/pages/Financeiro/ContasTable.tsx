@@ -223,7 +223,7 @@ export function ContasTable({
                                   <Pencil size={14} />
                                   Editar
                                 </button>
-                                <button
+                                  {!conta.automatic && <button
                                   type="button"
                                   className="fx-menu-danger"
                                   onClick={() => {
@@ -233,7 +233,7 @@ export function ContasTable({
                                 >
                                   <Trash2 size={14} />
                                   Excluir
-                                </button>
+                                  </button>}
                               </div>
                             </>
                           )}

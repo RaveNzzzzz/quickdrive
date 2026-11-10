@@ -77,6 +77,7 @@ class ContaPagar(TimeStampedModel):
     compra = models.ForeignKey(
         "sales.Compra", on_delete=models.PROTECT, related_name="contas_pagar", null=True, blank=True
     )
+    gerada_por_compra = models.BooleanField(default=False, editable=False)
 
     descricao = models.CharField("descrição", max_length=200)
     valor = models.DecimalField("valor", max_digits=12, decimal_places=2, validators=VALOR_POSITIVO)
@@ -88,6 +89,13 @@ class ContaPagar(TimeStampedModel):
         verbose_name = "conta a pagar"
         verbose_name_plural = "contas a pagar"
         ordering = ["data_vencimento"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["compra"],
+                condition=models.Q(gerada_por_compra=True),
+                name="conta_automatica_unica_por_compra",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.descricao} - venc. {self.data_vencimento}"

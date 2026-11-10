@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+from django.core.validators import MinValueValidator
 from django.db import models
 
 # Models de CategoriaProduto, Produto e Lote 
@@ -11,6 +14,13 @@ class CategoriaProduto(models.Model):
 class Produto(models.Model):
     nome = models.CharField(max_length=100)
     especificacao = models.TextField(blank=True)
+    valor_unitario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
     categoria = models.ForeignKey(CategoriaProduto, on_delete=models.PROTECT,related_name="produtos")
 
     def __str__(self):

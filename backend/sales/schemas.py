@@ -89,9 +89,10 @@ class CompraIn(_Entrada):
     veiculo_id: int | None = Field(default=None, gt=0)
     lote_id: int | None = Field(default=None, gt=0)
     valor_compra: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
-    forma_pagamento: FormaPagamento
+    forma_pagamento: FormaPagamento | None = None
     status: StatusCompra = StatusCompra.PENDENTE
     data_compra: date
+    data_vencimento: date | None = None
 
 
 class CompraUpdate(_Entrada):
@@ -118,7 +119,7 @@ class CompraOut(Schema):
     lote_id: int | None = None
     lote: str | None = None
     valor_compra: float
-    forma_pagamento: str
+    forma_pagamento: str | None
     status: str
     data_compra: date
 

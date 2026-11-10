@@ -1,3 +1,4 @@
+from copy import copy
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
@@ -17,6 +18,7 @@ from vehicles.models import Veiculo
 
 from .enums import EtapaNegociacao, ItemCompra, StatusCompra, StatusVenda
 from .models import Compra, Negociacao, NegociacaoEvento, Venda
+from .purchase_finance import conferir_lote_disponivel, gerar_conta_do_lote, sincronizar_conta_do_lote
 from .schemas import (
     AlertaFunilOut,
     CompraIn,
@@ -170,7 +172,7 @@ def excluir_venda(request, venda_id: int):
 
 # --- Compras ---
 
-COMPRA_ANULAVEIS = ("cliente_id", "veiculo_id", "lote_id")
+COMPRA_ANULAVEIS = ("cliente_id", "veiculo_id", "lote_id", "forma_pagamento")
 
 
 def _compras():
@@ -193,11 +195,15 @@ def listar_compras(request, status: StatusCompra | None = None, item_compra: Ite
 @compras_router.post("", response={201: CompraOut})
 def criar_compra(request, payload: CompraIn):
     dados = payload.dict()
+    vencimento = dados.pop("data_vencimento")
     _conferir_funcionario(request, dados, "compras")
     _conferir_relacionados(dados)
     compra = Compra(**dados)
     _validar(compra)
-    compra.save()
+    with transaction.atomic():
+        conferir_lote_disponivel(compra)
+        compra.save()
+        gerar_conta_do_lote(compra, vencimento)
     return 201, _compras().get(pk=compra.pk)
 
 
@@ -213,9 +219,17 @@ def atualizar_compra(request, compra_id: int, payload: CompraUpdate):
     _conferir_relacionados(dados)
     with transaction.atomic():
         compra = get_object_or_404(Compra.objects.select_for_update(), id=compra_id)
+        anterior = copy(compra)
         for campo, valor in dados.items():
             setattr(compra, campo, valor)
         _validar(compra)
+        if (
+            compra.lote_id != anterior.lote_id
+            or compra.item_compra != anterior.item_compra
+            or anterior.status == StatusCompra.CANCELADA
+        ):
+            conferir_lote_disponivel(compra)
+        sincronizar_conta_do_lote(compra, anterior)
         compra.save()
     return _compras().get(pk=compra.pk)
 
