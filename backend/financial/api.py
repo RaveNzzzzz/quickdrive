@@ -127,10 +127,17 @@ def obter_despesa(request, despesa_id: int):
 
 @despesas_router.patch("/{int:despesa_id}", response=DespesaOut)
 def atualizar_despesa(request, despesa_id: int, payload: DespesaUpdate):
-    despesa = get_object_or_404(Despesa, id=despesa_id)
-    for campo, valor in _dados_update(payload).items():
-        setattr(despesa, campo, valor)
-    despesa.save()
+    dados = _dados_update(payload)
+    with transaction.atomic():
+        despesa = get_object_or_404(Despesa.objects.select_for_update(), id=despesa_id)
+        if (
+            any(campo in dados and dados[campo] != getattr(despesa, campo) for campo in ("valor", "data"))
+            and despesa.contas_pagar.filter(gerada_por_compra=True).exists()
+        ):
+            raise HttpError(409, "O valor e a data desta despesa vêm da compra.")
+        for campo, valor in dados.items():
+            setattr(despesa, campo, valor)
+        despesa.save()
     return despesa
 
 
@@ -207,6 +214,14 @@ def _contas_pagar():
     return ContaPagar.objects.select_related("despesa")
 
 
+def _conferir_vinculo_manual(compra_id=None, despesa_id=None):
+    automaticas = ContaPagar.objects.filter(gerada_por_compra=True)
+    if compra_id and automaticas.filter(compra_id=compra_id).exists():
+        raise HttpError(409, "Esta compra já tem uma conta a pagar automática.")
+    if despesa_id and automaticas.filter(despesa_id=despesa_id).exists():
+        raise HttpError(409, "Esta despesa já está vinculada à conta automática da compra.")
+
+
 @contas_pagar_router.get("", response=list[ContaPagarOut])
 @paginate
 def listar_contas_pagar(
@@ -229,9 +244,13 @@ def listar_contas_pagar(
 def criar_conta_pagar(request, payload: ContaPagarIn):
     dados = payload.dict()
     _conferir_relacionados(dados)
-    conta = ContaPagar(**dados)
-    _ajustar_data_baixa(conta, "data_pagamento", StatusContaPagar.PAGO)
-    conta.save()
+    with transaction.atomic():
+        if dados.get("compra_id"):
+            get_object_or_404(Compra.objects.select_for_update(), id=dados["compra_id"])
+        _conferir_vinculo_manual(dados.get("compra_id"), dados["despesa_id"])
+        conta = ContaPagar(**dados)
+        _ajustar_data_baixa(conta, "data_pagamento", StatusContaPagar.PAGO)
+        conta.save()
     return 201, _contas_pagar().get(pk=conta.pk)
 
 
@@ -245,7 +264,20 @@ def atualizar_conta_pagar(request, conta_id: int, payload: ContaPagarUpdate):
     dados = _dados_update(payload, anulaveis=("compra_id", "data_pagamento"))
     _conferir_relacionados(dados)
     with transaction.atomic():
+        if dados.get("compra_id"):
+            get_object_or_404(Compra.objects.select_for_update(), id=dados["compra_id"])
         conta = get_object_or_404(ContaPagar.objects.select_for_update(), id=conta_id)
+        if conta.gerada_por_compra:
+            if any(campo in dados and dados[campo] != getattr(conta, campo)
+                   for campo in ("valor", "compra_id", "despesa_id")):
+                raise HttpError(409, "O valor e os vínculos desta conta vêm da compra.")
+            novo_status = dados.get("status", conta.status)
+            if novo_status != conta.status and StatusContaPagar.CANCELADO in (novo_status, conta.status):
+                raise HttpError(409, "Cancele ou reative a compra para alterar esta conta cancelada.")
+        else:
+            _conferir_vinculo_manual(
+                dados.get("compra_id", conta.compra_id), dados.get("despesa_id", conta.despesa_id)
+            )
         for campo, valor in dados.items():
             setattr(conta, campo, valor)
         _ajustar_data_baixa(conta, "data_pagamento", StatusContaPagar.PAGO)
@@ -255,5 +287,9 @@ def atualizar_conta_pagar(request, conta_id: int, payload: ContaPagarUpdate):
 
 @contas_pagar_router.delete("/{int:conta_id}", response={204: None})
 def excluir_conta_pagar(request, conta_id: int):
-    get_object_or_404(ContaPagar, id=conta_id).delete()
+    with transaction.atomic():
+        conta = get_object_or_404(ContaPagar.objects.select_for_update(), id=conta_id)
+        if conta.gerada_por_compra:
+            raise HttpError(409, "Cancele a compra para cancelar sua conta a pagar.")
+        conta.delete()
     return 204, None

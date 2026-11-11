@@ -19,23 +19,29 @@ export function EstoqueFormModal({ editor, categories, onClose, onSaved }: Props
   const formId = useId()
   const [name, setName] = useState(editor.kind === 'lote' ? editor.item?.numero_lote ?? '' : editor.item?.nome ?? '')
   const [description, setDescription] = useState(editor.kind === 'produto' ? editor.item?.especificacao ?? '' : '')
+  const [unitValue, setUnitValue] = useState(editor.kind === 'produto' ? editor.item?.valor_unitario ?? '' : '')
   const [categoryId, setCategoryId] = useState(editor.kind === 'produto' ? String(editor.item?.categoria_id ?? '') : '')
   const [quantity, setQuantity] = useState(editor.kind === 'lote' ? String(editor.item?.quantidade ?? 0) : '0')
   const [expiry, setExpiry] = useState(editor.kind === 'lote' ? editor.item?.data_validade ?? '' : '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const label = editor.kind === 'produto' ? 'produto' : editor.kind === 'categoria' ? 'categoria' : 'lote'
+  const newLot = editor.kind === 'lote' && !editor.item
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (saving) return
     setError('')
     if (!name.trim()) { setError('Informe um nome ou número válido.'); return }
-    if (editor.kind === 'lote' && (!Number.isSafeInteger(Number(quantity)) || Number(quantity) < 0 || quantity === '')) {
-      setError('A quantidade deve ser um número inteiro maior ou igual a zero.'); return
+    if (editor.kind === 'lote' && (!Number.isSafeInteger(Number(quantity)) || Number(quantity) < (newLot ? 1 : 0) || quantity === '')) {
+      setError(newLot ? 'Informe uma quantidade inteira maior que zero.' : 'A quantidade deve ser um número inteiro maior ou igual a zero.'); return
+    }
+    const unitValueText = unitValue.trim().replace(',', '.')
+    if (editor.kind === 'produto' && unitValueText && !/^\d{1,10}(\.\d{1,2})?$/.test(unitValueText)) {
+      setError('Informe um valor unitário válido, com até duas casas decimais.'); return
     }
     const payload = editor.kind === 'produto'
-      ? { nome: name.trim(), especificacao: description.trim(), categoria_id: Number(categoryId) }
+      ? { nome: name.trim(), especificacao: description.trim(), categoria_id: Number(categoryId), valor_unitario: unitValueText || null }
       : editor.kind === 'categoria' ? { nome: name.trim() }
         : { numero_lote: name.trim(), quantidade: Number(quantity), data_validade: expiry || null, ...(!editor.item ? { produto_id: editor.product.id } : {}) }
     const path = editor.kind === 'produto' ? 'produtos' : editor.kind === 'categoria' ? 'categorias' : 'lotes'
@@ -69,13 +75,15 @@ export function EstoqueFormModal({ editor, categories, onClose, onSaved }: Props
           {!categories.length && <p>Cadastre uma categoria antes de criar o produto.</p>}
           <label htmlFor={`${formId}-description`}>Especificação (opcional)</label>
           <textarea id={`${formId}-description`} value={description} onChange={e => setDescription(e.target.value)} />
-          <p>A quantidade é registrada nos lotes. O custo depende dos dados de compras.</p>
+          <label htmlFor={`${formId}-unit-value`}>Valor unitário de referência (R$, opcional)</label>
+          <input id={`${formId}-unit-value`} inputMode="decimal" value={unitValue} onChange={e => setUnitValue(e.target.value)} placeholder="0,00" />
         </>}
         {editor.kind === 'lote' && <>
           <label htmlFor={`${formId}-quantity`}>Quantidade</label>
-          <input id={`${formId}-quantity`} type="number" min="0" step="1" required value={quantity} onChange={e => setQuantity(e.target.value)} />
+          <input id={`${formId}-quantity`} type="number" min={newLot ? 1 : 0} step="1" required value={quantity} onChange={e => setQuantity(e.target.value)} />
           <label htmlFor={`${formId}-expiry`}>Validade (opcional)</label>
           <input id={`${formId}-expiry`} type="date" value={expiry} onChange={e => setExpiry(e.target.value)} />
+          {newLot && <p>Ao salvar, a compra será lançada em Financeiro → A pagar com base no valor unitário do produto.</p>}
         </>}
       </fieldset>
     </form>

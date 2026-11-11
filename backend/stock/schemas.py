@@ -1,5 +1,6 @@
 # Schemas de entrada, atualização e saída do estoque serão definidos aqui.
 from datetime import date
+from decimal import Decimal
 
 from ninja import Field, Schema
 
@@ -9,10 +10,11 @@ class CategoriaProdutoIn(Schema):
 class ProdutoIn(Schema):
     nome: str = Field(min_length=1, max_length=100)
     especificacao: str = ""
+    valor_unitario: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     categoria_id: int = Field(gt=0) #Garante que o id da categoria seja maior que 0, evitando valores inválidos.
 
 class LoteIn(Schema):
-    quantidade: int = Field(ge=0) #Garante que a quantidade seja maior ou igual a 0, evitando valores negativos.
+    quantidade: int = Field(gt=0, le=2_147_483_647)
     data_validade: date | None = None
     numero_lote: str = Field(min_length=1, max_length=50) #Garante que o número do lote tenha pelo menos 1 caractere e no máximo 50 caracteres.
     produto_id: int = Field(gt=0)
@@ -26,6 +28,7 @@ class ProdutoOut(Schema):
     nome: str
     especificacao: str
     categoria_id: int
+    valor_unitario: Decimal | None
 
 class LoteOut(Schema):
     id: int
@@ -40,6 +43,7 @@ class CategoriaProdutoUpdate(Schema):
 class ProdutoUpdate(Schema):
     nome: str | None = Field(default=None, min_length=1, max_length=100)
     especificacao: str | None = None
+    valor_unitario: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     categoria_id: int | None = Field(default=None, gt=0)
 
 class LoteUpdate(Schema):

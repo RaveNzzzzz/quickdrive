@@ -77,7 +77,13 @@ export type VeiculoPayload = {
   vaga: string
 }
 export type CategoriaProdutoApi = OpcaoApi
-export type ProdutoApi = { id: number; nome: string; especificacao: string; categoria_id: number }
+export type ProdutoApi = {
+  id: number
+  nome: string
+  especificacao: string
+  categoria_id: number
+  valor_unitario: string | null
+}
 export type LoteApi = { id: number; quantidade: number; data_validade: string | null; numero_lote: string; produto_id: number }
 
 export type AlertaApi = {
@@ -127,6 +133,7 @@ export type ContaReceberApi = {
 export type ContaPagarApi = {
   id: number
   despesa_id: number
+  gerada_por_compra: boolean
   /** Descrição da despesa a que a conta pertence. */
   despesa: string
   categoria: string
@@ -159,7 +166,7 @@ export type CompraApi = {
   lote_id: number | null
   lote: string | null
   valor_compra: number
-  forma_pagamento: string
+  forma_pagamento: string | null
   status: 'pendente' | 'concluida' | 'cancelada'
   data_compra: string
 }

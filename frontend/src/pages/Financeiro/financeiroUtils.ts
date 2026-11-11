@@ -11,6 +11,7 @@ export type Conta = {
   parentId: number
   /** Venda (conta a receber) ou compra (conta a pagar) que gerou a conta, se houver. */
   originId: number | null
+  automatic?: boolean
   description: string
   note: string
   category: string
@@ -43,6 +44,7 @@ export function fromContaPagar(conta: ContaPagarApi): Conta {
     kind: 'pagar',
     parentId: conta.despesa_id,
     originId: conta.compra_id,
+    automatic: conta.gerada_por_compra,
     description: conta.descricao,
     note: conta.despesa,
     category: conta.categoria,

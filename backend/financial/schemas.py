@@ -135,6 +135,7 @@ class ContaPagarOut(Schema):
     despesa: str
     categoria: str
     compra_id: int | None = None
+    gerada_por_compra: bool
     descricao: str
     valor: float
     data_vencimento: date

@@ -4,8 +4,9 @@ import { api } from "../../api/client";
 import { Modal } from "../../components/Modal";
 import { Pagination } from "../../components/Pagination";
 import type { CategoriaProdutoApi, LoteApi, ProdutoApi } from "../../types";
+import { currencyCents } from "../../utils/format";
 import "./Estoque.css";
-import { toProducts } from "./estoqueData";
+import { stockValue, toProducts } from "./estoqueData";
 import { EstoqueFormModal, type StockEditor } from "./EstoqueFormModal";
 
 export default function Estoque() {
@@ -62,6 +63,7 @@ export default function Estoque() {
     () => toProducts(products, categories, lots),
     [products, categories, lots],
   );
+  const valuation = useMemo(() => stockValue(rows), [rows]);
   const filtered = rows.filter(
     (p) =>
       (!category || String(p.categoria_id) === category) &&
@@ -99,7 +101,9 @@ export default function Estoque() {
         item as LoteApi,
       ]);
     setEditor(null);
-    setNotice("Registro salvo com sucesso.");
+    setNotice(kind === "lote" && !editor?.item
+      ? "Lote cadastrado. A conta está em Financeiro → A pagar."
+      : "Registro salvo com sucesso.");
   }
   function confirm(path: "produtos" | "lotes", id: number, name: string) {
     setDeleteError("");
@@ -153,8 +157,12 @@ export default function Estoque() {
         </div>
         <div className="card kpi-card">
           <h3>Valor em estoque</h3>
-          <strong className="kpi-value">—</strong>
-          <p className="kpi-helper">Aguardando dados de compras</p>
+          <strong className="kpi-value">{unavailable ? "—" : valuation.value}</strong>
+          <p className="kpi-helper">
+            {!unavailable && valuation.missing
+              ? `${valuation.missing} ${valuation.missing === 1 ? "produto com saldo sem valor" : "produtos com saldo sem valor"}`
+              : "Saldo atual × valor unitário"}
+          </p>
         </div>
         <button
           className={`card kpi-card estoque-kpi-low ${low ? "active" : ""}`}
@@ -258,7 +266,7 @@ export default function Estoque() {
                   <tr key={p.id}>
                     <td>{p.nome}</td>
                     <td>{p.category}</td>
-                    <td>Aguardando compras</td>
+                    <td>{p.valor_unitario == null ? "Não informado" : currencyCents.format(Number(p.valor_unitario))}</td>
                     <td>
                       <span className="estoque-qty">
                         {p.quantity}

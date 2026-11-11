@@ -61,7 +61,9 @@ class Compra(TimeStampedModel):
 
     item_compra = models.CharField("item da compra", max_length=20, choices=ItemCompra.choices)
     valor_compra = models.DecimalField("valor da compra", max_digits=12, decimal_places=2, validators=VALOR_POSITIVO)
-    forma_pagamento = models.CharField("forma de pagamento", max_length=20, choices=FormaPagamento.choices)
+    forma_pagamento = models.CharField(
+        "forma de pagamento", max_length=20, choices=FormaPagamento.choices, null=True, blank=True
+    )
     status = models.CharField("status", max_length=20, choices=StatusCompra.choices, default=StatusCompra.PENDENTE)
     data_compra = models.DateField("data da compra")
 
@@ -77,6 +79,8 @@ class Compra(TimeStampedModel):
         # O tipo do item define qual FK precisa estar preenchida.
         if self.item_compra == ItemCompra.VEICULO and (not self.veiculo_id or self.lote_id):
             raise ValidationError({"veiculo": "Compra de veículo precisa de um veículo e não pode ter lote."})
+        if self.item_compra == ItemCompra.VEICULO and not self.forma_pagamento:
+            raise ValidationError({"forma_pagamento": "Informe a forma de pagamento da compra de veículo."})
         if self.item_compra == ItemCompra.PRODUTO and (not self.lote_id or self.veiculo_id):
             raise ValidationError({"lote": "Compra de produto precisa de um lote e não pode ter veículo."})
 

@@ -184,6 +184,7 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
               <label htmlFor={`${formId}-amount`}>Valor (R$)</label>
               <input
                 id={`${formId}-amount`}
+                readOnly={conta?.automatic}
                 type="number"
                 min="0.01"
                 step="0.01"
@@ -200,7 +201,7 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
           </div>
 
           <label htmlFor={`${formId}-parent`}>{parentLabel}</label>
-          <select id={`${formId}-parent`} value={parentId} onChange={(e) => setParentId(e.target.value)} required>
+          <select id={`${formId}-parent`} value={parentId} onChange={(e) => setParentId(e.target.value)} required disabled={conta?.automatic}>
             <option value="">{loading ? 'Carregando…' : 'Selecione'}</option>
             <option value={NOVO}>+ Criar {parentLabel.toLowerCase()} nova</option>
             {lancamentos.map((l) => (
@@ -248,7 +249,7 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
           )}
 
           <label htmlFor={`${formId}-origin`}>{kind === 'receber' ? 'Venda (opcional)' : 'Compra (opcional)'}</label>
-          <select id={`${formId}-origin`} value={originId} onChange={(e) => setOriginId(e.target.value)}>
+          <select id={`${formId}-origin`} value={originId} onChange={(e) => setOriginId(e.target.value)} disabled={conta?.automatic}>
             <option value="">{kind === 'receber' ? 'Nenhuma venda' : 'Nenhuma compra'}</option>
             {kind === 'receber'
               ? vendas.map((v) => (

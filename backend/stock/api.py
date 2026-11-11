@@ -5,6 +5,8 @@ from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 
+from sales.purchase_finance import registrar_compra_do_novo_lote
+
 from .models import CategoriaProduto, Produto, Lote
 from .schemas import (
     CategoriaProdutoIn,
@@ -71,7 +73,10 @@ def create_produto(request, payload: ProdutoIn):
         raise HttpError(404, "Categoria não encontrada.")
 
     produto = Produto.objects.create(
-        nome=nome, especificacao=especificacao, categoria=categoria
+        nome=nome,
+        especificacao=especificacao,
+        categoria=categoria,
+        valor_unitario=payload.valor_unitario,
     )
     return 201, produto
 
@@ -92,21 +97,21 @@ def create_lote(request, payload: LoteIn):
 
     if not numero_lote:
         raise HttpError(422, "Informe o número do lote.")
+    funcionario_id = request.user.funcionario_id
+    if funcionario_id is None:
+        raise HttpError(422, "Vincule seu usuário a um funcionário antes de cadastrar um lote.")
 
     try:
-        produto = Produto.objects.get(id=produto_id)
-    except Produto.DoesNotExist:
-        raise HttpError(404, "Produto não encontrado.")
-
-    try:
-        with transaction.atomic(): # Garante que a criação do lote seja atômica, ou seja, se ocorrer algum erro durante a criação do lote, nenhuma alteração será feita no banco de dados.
+        with transaction.atomic():
+            produto = get_object_or_404(Produto.objects.select_for_update(), id=produto_id)
             lote = Lote.objects.create(
                 quantidade=quantidade,
                 data_validade=data_validade,
                 numero_lote=numero_lote,
                 produto=produto,
             )
-    except IntegrityError: # Garante que não haja duplicidade de lotes para o mesmo produto, caso ocorra uma violação da constraint de unicidade definida no modelo Lote.
+            registrar_compra_do_novo_lote(lote, funcionario_id)
+    except IntegrityError:
         if Lote.objects.filter(
             produto_id=produto_id,
             numero_lote=numero_lote,
@@ -120,10 +125,10 @@ def create_lote(request, payload: LoteIn):
     return 201, lote
 
 
-def _update_data(payload):
+def _update_data(payload, anulaveis=()):
     dados = payload.model_dump(exclude_unset=True)
     for campo, valor in dados.items():
-        if valor is None and campo != "data_validade":
+        if valor is None and campo not in anulaveis:
             raise HttpError(422, f"O campo {campo} não pode ser nulo.")
         if isinstance(valor, str):
             dados[campo] = valor.strip()
@@ -154,7 +159,7 @@ def update_categoria(request, categoria_id: int, payload: CategoriaProdutoUpdate
 
 @router.patch("/produtos/{int:produto_id}", response=ProdutoOut)
 def update_produto(request, produto_id: int, payload: ProdutoUpdate):
-    dados = _update_data(payload)
+    dados = _update_data(payload, anulaveis=("valor_unitario",))
     with transaction.atomic():
         produto = get_object_or_404(Produto.objects.select_for_update(), id=produto_id)
         if "categoria_id" in dados:
@@ -169,7 +174,7 @@ def update_produto(request, produto_id: int, payload: ProdutoUpdate):
 
 @router.patch("/lotes/{int:lote_id}", response=LoteOut)
 def update_lote(request, lote_id: int, payload: LoteUpdate):
-    dados = _update_data(payload)
+    dados = _update_data(payload, anulaveis=("data_validade",))
     with transaction.atomic():
         lote = get_object_or_404(Lote.objects.select_for_update(), id=lote_id)
         for campo, valor in dados.items():

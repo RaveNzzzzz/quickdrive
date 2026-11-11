@@ -41,13 +41,15 @@ INSTALLED_APPS = [
     "stock",
     "sales",
     "financial",
+    "audit",
 ]
 
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # ← primeiro de todos
+    "audit.middleware.RequestAuditMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -161,6 +163,7 @@ USE_TZ = True
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
+CORS_EXPOSE_HEADERS = ["X-Request-ID"]
 
 # --- JWT ---
 NINJA_JWT = {
