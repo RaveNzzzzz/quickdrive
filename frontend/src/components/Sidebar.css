@@ -89,8 +89,8 @@
 
 .sidebar-link-active,
 .sidebar-link-active:hover {
-  background: var(--accent-bg);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 /* Monthly goal */

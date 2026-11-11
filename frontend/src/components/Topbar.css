@@ -276,6 +276,59 @@ kbd {
   background: var(--bg);
 }
 
+.topbar-theme {
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.topbar-theme-menu {
+  width: 210px;
+}
+
+.topbar-theme-menu .topbar-theme-options {
+  padding: 8px;
+}
+
+.topbar-theme-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.topbar-theme-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar-theme-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-h);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.topbar-theme-btn:hover {
+  background: var(--bg);
+}
+
+.topbar-theme-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .topbar-menu-danger {
   color: var(--danger);
 }

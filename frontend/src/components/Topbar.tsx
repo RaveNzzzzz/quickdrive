@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { ChevronRight, Search } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationsMenu } from './NotificationsMenu'
+import { ThemeMenu } from './ThemeMenu'
 import { UserMenu } from './UserMenu'
 import { findPage } from './navigation'
 import './Topbar.css'
@@ -16,7 +17,7 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
 // Nome da tela de detalhe de cada seção (ex.: /patio/12).
 const DETAIL_LABELS: Record<string, string> = {
-  patio: 'Ficha do veículo',
+  patio: 'Ficha (Veículo)',
   perfil: 'Trocar senha',
 }
 
@@ -83,6 +84,7 @@ export function Topbar() {
           <kbd>Ctrl K</kbd>
         </button>
         <NotificationsMenu />
+        <ThemeMenu />
         <UserMenu />
       </div>
 

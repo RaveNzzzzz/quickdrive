@@ -16,6 +16,7 @@ import Perfil from './pages/Perfil/Perfil'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import Login from './auth/Login'
 import PasswordRecovery from './auth/PasswordRecovery'
+import { ChartSkeleton, KpiSkeleton, Skeleton } from './components/Skeleton'
 import './App.css'
 
 function Layout() {
@@ -52,7 +53,44 @@ function Layout() {
 
 function Root() {
   const { user, loading } = useAuth()
-  if (loading) return <p>Carregando…</p>
+  if (loading)
+    return (
+      <div className="app-layout" role="status" aria-busy="true" aria-label="Carregando">
+        <aside className="skeleton-sidebar">
+          <Skeleton width={120} height={28} radius={8} />
+          <div className="skeleton-stack" style={{ marginTop: 28 }}>
+            {Array.from({ length: 8 }, (_, i) => (
+              <Skeleton key={i} height={34} radius={8} />
+            ))}
+          </div>
+        </aside>
+        <div className="app-main">
+          <div className="skeleton-topbar">
+            <div className="skeleton-stack" style={{ gap: 8, flex: 1 }}>
+              <Skeleton width={180} height={12} />
+              <Skeleton width={260} height={26} />
+            </div>
+            <Skeleton width={38} height={38} radius={999} />
+            <Skeleton width={38} height={38} radius={999} />
+            <Skeleton width={150} height={38} radius={999} />
+          </div>
+          <main className="app-content">
+            <div className="kpi-row kpi-row-4">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="card kpi-card">
+                  <Skeleton width="50%" height={14} />
+                  <KpiSkeleton width="70%" />
+                  <Skeleton width="60%" height={12} />
+                </div>
+              ))}
+            </div>
+            <div className="card" style={{ marginTop: 20 }}>
+              <ChartSkeleton />
+            </div>
+          </main>
+        </div>
+      </div>
+    )
   return user ? <Layout /> : (
     <Routes>
       <Route path="/login" element={<Login />} />

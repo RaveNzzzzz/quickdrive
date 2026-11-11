@@ -1,8 +1,8 @@
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,6 +26,7 @@ import { currencyCompact, percentChange } from "../../utils/format";
 import { DateRangePicker } from "../../components/DateRangePicker";
 import { inRange, todayIso, type DateRange } from "../Financeiro/financeiroUtils";
 import "./Home.css";
+import { ChartSkeleton, KpiSkeleton, Skeleton, TableSkeleton } from "../../components/Skeleton";
 
 function AlertasCard() {
   const { alertas, error } = useAlertas();
@@ -38,7 +39,11 @@ function AlertasCard() {
           Não foi possível carregar os alertas: {error}
         </p>
       ) : alertas === null ? (
-        <p className="patio-empty">Carregando…</p>
+        <div className="skeleton-stack" aria-label="Carregando alertas">
+          <Skeleton height={48} radius={12} />
+          <Skeleton height={48} radius={12} />
+          <Skeleton height={48} radius={12} />
+        </div>
       ) : alertas.length === 0 ? (
         <p className="patio-empty">Nenhum alerta no momento. Tudo em dia!</p>
       ) : (
@@ -117,7 +122,7 @@ function PatioRecentes() {
           aria-label="Carregando veículos"
         >
           {Array.from({ length: PATIO_RECENTES }, (_, i) => (
-            <div key={i} className="patio-item patio-item-loading" />
+            <Skeleton key={i} height={64} radius={12} />
           ))}
         </div>
       ) : veiculos.length === 0 ? (
@@ -192,6 +197,7 @@ function TrendBadge({ trend }: { trend: number | null }) {
 const legendLabels: Record<string, string> = {
   compras: "Compras",
   vendas: "Vendas",
+  gastos: "Gastos",
 };
 
 const statusLabel: Record<VendaApi["status"], string> = {
@@ -346,8 +352,12 @@ export default function Home() {
           const prefixo = `${year}-${String(i + 1).padStart(2, "0")}`;
           const comprasNoPeriodo = dados.compras.filter((c) => inRange(c.data_compra, range));
           const vendasNoPeriodo = pagas.filter((v) => inRange(v.data_venda, range));
+          const gastosNoPeriodo = (dados.contas?.pagar ?? []).filter(
+            (c) => c.status === "pago" && c.data_pagamento !== null && inRange(c.data_pagamento, range),
+          );
           return {
             month,
+            gastos: total(gastosNoPeriodo, prefixo, (c) => c.data_pagamento, (c) => c.valor),
             compras: total(comprasNoPeriodo, prefixo, (c) => c.data_compra, compra),
             vendas: total(vendasNoPeriodo, prefixo, (v) => v.data_venda, venda),
           };
@@ -377,7 +387,7 @@ export default function Home() {
               <TrendBadge trend={resumo?.compras.trend ?? null} />
             </div>
             <strong className="kpi-value">
-              {valor(resumo?.compras.value ?? 0)}
+              {carregando ? <KpiSkeleton /> : valor(resumo?.compras.value ?? 0)}
             </strong>
             <p className="kpi-helper">No mês · {helperAnterior}</p>
           </div>
@@ -388,7 +398,7 @@ export default function Home() {
               <TrendBadge trend={resumo?.vendas.trend ?? null} />
             </div>
             <strong className="kpi-value">
-              {valor(resumo?.vendas.value ?? 0)}
+              {carregando ? <KpiSkeleton /> : valor(resumo?.vendas.value ?? 0)}
             </strong>
             <p className="kpi-helper">Pagas no mês · {helperAnterior}</p>
           </div>
@@ -399,7 +409,7 @@ export default function Home() {
                 <h3>Caixa</h3>
               </div>
               <strong className="kpi-value">
-                {valor(resumo?.caixa?.saldo ?? 0)}
+                {carregando ? <KpiSkeleton /> : valor(resumo?.caixa?.saldo ?? 0)}
               </strong>
               <p className="kpi-helper">
                 No mês: entradas {valor(resumo?.caixa?.entradas ?? 0)} · saídas{" "}
@@ -417,7 +427,7 @@ export default function Home() {
                 )}
               </div>
               <strong className="kpi-value">
-                {valor(resumo?.pendentes.value ?? 0)}
+                {carregando ? <KpiSkeleton /> : valor(resumo?.pendentes.value ?? 0)}
               </strong>
               <p className="kpi-helper">Aguardando pagamento</p>
             </div>
@@ -450,11 +460,13 @@ export default function Home() {
                 </Link>
               </div>
             </div>
-            {resumo && resumo.chart.length === 0 ? (
+            {carregando ? (
+              <ChartSkeleton />
+            ) : resumo && resumo.chart.length === 0 ? (
               <p className="chart-empty">Nenhum dado para o período selecionado.</p>
             ) : (
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart
+              <BarChart
                 data={resumo?.chart ?? []}
                 margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
               >
@@ -483,23 +495,27 @@ export default function Home() {
                   iconType="circle"
                   formatter={(value: string) => legendLabels[value] ?? value}
                 />
-                <Line
-                  type="monotone"
+                <Bar
                   dataKey="compras"
-                  stroke="var(--accent)"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
+                  fill="var(--accent)"
+                  radius={[4, 4, 0, 0]}
                   isAnimationActive={false}
                 />
-                <Line
-                  type="monotone"
+                <Bar
                   dataKey="vendas"
-                  stroke="var(--success)"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
+                  fill="var(--success)"
+                  radius={[4, 4, 0, 0]}
                   isAnimationActive={false}
                 />
-              </LineChart>
+                {gerente && (
+                  <Bar
+                    dataKey="gastos"
+                    fill="var(--danger)"
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                  />
+                )}
+              </BarChart>
             </ResponsiveContainer>
             )}
           </div>
@@ -548,7 +564,8 @@ export default function Home() {
                   </td>
                 </tr>
               ))}
-              {(carregando || resumo?.ultimas.length === 0) && (
+              {carregando && <TableSkeleton cols={6} rows={5} />}
+              {!carregando && resumo?.ultimas.length === 0 && (
                 <tr>
                   <td colSpan={6} className="home-empty">
                     {carregando

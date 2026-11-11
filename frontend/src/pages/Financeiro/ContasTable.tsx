@@ -1,3 +1,4 @@
+import { TableSkeleton } from '../../components/Skeleton'
 import { useState } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Check, MoreHorizontal, Pencil, Search, Trash2, Undo2 } from 'lucide-react'
 import { Pagination } from '../../components/Pagination'
@@ -244,7 +245,8 @@ export function ContasTable({
                 )
               })}
 
-              {pageItems.length === 0 && (
+              {loading && <TableSkeleton cols={7} />}
+              {!loading && pageItems.length === 0 && (
                 <tr>
                   <td colSpan={7} className="fx-empty">
                     {loading ? 'Carregando…' : 'Nenhuma conta encontrada para esses filtros.'}

@@ -12,6 +12,8 @@ import {
 } from 'recharts'
 import { Download, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { api } from '../../api/client'
+import { toast } from '../../utils/toast'
+import { KpiSkeleton, ChartSkeleton, TableSkeleton } from '../../components/Skeleton'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import { DateRangePicker } from '../../components/DateRangePicker'
@@ -243,6 +245,7 @@ export default function Vendas() {
     setVendas((prev) =>
       prev.some((v) => v.id === item.id) ? prev.map((v) => (v.id === item.id ? item : v)) : [item, ...prev],
     )
+    toast.success(editor?.venda ? 'Venda atualizada com sucesso!' : 'Venda registrada com sucesso!')
     setEditor(null)
     avisarVendasAlteradas()
   }
@@ -255,6 +258,7 @@ export default function Vendas() {
       await api<null>(`/vendas/${deletion.id}`, { method: 'DELETE' })
       setVendas((prev) => prev.filter((v) => v.id !== deletion.id))
       setDeletion(null)
+      toast.success('Venda excluída com sucesso!')
       avisarVendasAlteradas()
     } catch (err) {
       setDeleteError((err as Error).message)
@@ -288,7 +292,7 @@ export default function Vendas() {
             <h3>Faturamento</h3>
             <Change value={before && percentChange(current.faturamento, before.faturamento)} />
           </div>
-          <strong className="kpi-value">{currency.format(current.faturamento)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(current.faturamento)}</strong>
           <div className="vd-goal">
             <div className="vd-goal-bar">
               <div style={{ width: `${metaPct}%` }} />
@@ -304,7 +308,7 @@ export default function Vendas() {
             <h3>Vendas fechadas</h3>
             <Change value={before && percentChange(current.fechadas, before.fechadas)} />
           </div>
-          <strong className="kpi-value">{current.fechadas}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton width={60} /> : current.fechadas}</strong>
           <p className="kpi-helper">Meta do mês: {metaVendasFechadas} veículos</p>
         </div>
 
@@ -313,7 +317,7 @@ export default function Vendas() {
             <h3>Ticket médio</h3>
             <Change value={before && percentChange(current.ticket, before.ticket)} />
           </div>
-          <strong className="kpi-value">{currency.format(current.ticket)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(current.ticket)}</strong>
           <p className="kpi-helper">Por venda paga no período</p>
         </div>
 
@@ -322,7 +326,7 @@ export default function Vendas() {
             <h3>A receber</h3>
             <span className="trend-badge trend-neutral">{current.abertas} abertas</span>
           </div>
-          <strong className="kpi-value">{currency.format(current.aReceber)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(current.aReceber)}</strong>
           <p className="kpi-helper">Vendas pendentes de pagamento</p>
         </div>
       </div>
@@ -334,6 +338,9 @@ export default function Vendas() {
             <p>Vendas pagas em {new Date().getFullYear()} comparadas à meta mensal</p>
           </div>
         </div>
+        {loading ? (
+          <ChartSkeleton />
+        ) : (
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={faturamentoMensal} margin={{ top: 8, right: 16, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--border)" />
@@ -354,11 +361,12 @@ export default function Vendas() {
             />
             <Bar dataKey="value" name="Faturamento" radius={[6, 6, 0, 0]} isAnimationActive={false}>
               {faturamentoMensal.map((item, index) => (
-                <Cell key={item.month} fill={index === currentMonth ? 'var(--accent)' : '#b8ccff'} />
+                <Cell key={item.month} fill={index === currentMonth ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 35%, var(--surface))'} />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       <div className="card vd-table-card">
@@ -483,7 +491,8 @@ export default function Vendas() {
                   </td>
                 </tr>
               ))}
-              {pageItems.length === 0 && (
+              {loading && <TableSkeleton cols={7} />}
+              {!loading && pageItems.length === 0 && (
                 <tr>
                   <td colSpan={7} className="vd-empty">
                     {loading ? 'Carregando…' : 'Nenhuma venda encontrada para esses filtros.'}

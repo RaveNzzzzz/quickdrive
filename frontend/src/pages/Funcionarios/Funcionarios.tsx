@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Pencil, Plus, Search, UserMinus, X, FileText } from "lucide-react";
+import { Pencil, Plus, Search, UserMinus, FileText } from "lucide-react";
+import { toast } from "../../utils/toast";
+import { KpiSkeleton, TableSkeleton } from "../../components/Skeleton";
 import { Pagination } from "../../components/Pagination";
 import { Modal } from "../../components/Modal";
 import {
@@ -29,7 +31,6 @@ export default function Funcionarios() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const [notice, setNotice] = useState("");
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [sector, setSector] = useState("");
@@ -62,11 +63,6 @@ export default function Funcionarios() {
       active = false;
     };
   }, [attempt]);
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 5000);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   const activeEmployees = employees.filter((e) => e.ativo);
   const payroll = activeEmployees.reduce(
@@ -99,7 +95,7 @@ export default function Funcionarios() {
         a.pessoa.nome.localeCompare(b.pessoa.nome),
       ),
     );
-    setNotice(
+    toast.success(
       employee.ativo
         ? "Funcionário salvo com sucesso."
         : "Funcionário desligado. O acesso da conta vinculada foi bloqueado.",
@@ -110,21 +106,13 @@ export default function Funcionarios() {
 
   return (
     <div className="funcionarios-page">
-      {notice && (
-        <div className="func-notice" role="status">
-          <span>{notice}</span>
-          <button onClick={() => setNotice("")} aria-label="Fechar aviso">
-            <X size={16} />
-          </button>
-        </div>
-      )}
       <div className="kpi-row kpi-row-4">
         <div className="card kpi-card">
           <div className="kpi-card-header">
             <h3>Funcionários</h3>
           </div>
           <strong className="kpi-value">
-            {unavailable ? "—" : employees.length}
+            {loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : employees.length}
           </strong>
           <p className="kpi-helper">Em {sectors.length} setores cadastrados</p>
         </div>
@@ -138,7 +126,7 @@ export default function Funcionarios() {
             </span>
           </div>
           <strong className="kpi-value">
-            {unavailable ? "—" : activeEmployees.length}
+            {loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : activeEmployees.length}
           </strong>
           <p className="kpi-helper">Da equipe total</p>
         </div>
@@ -147,7 +135,7 @@ export default function Funcionarios() {
             <h3>Desligados</h3>
           </div>
           <strong className="kpi-value">
-            {unavailable ? "—" : employees.length - activeEmployees.length}
+            {loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : employees.length - activeEmployees.length}
           </strong>
           <p className="kpi-helper">Mantidos no histórico</p>
         </div>
@@ -156,7 +144,7 @@ export default function Funcionarios() {
             <h3>Folha mensal</h3>
           </div>
           <strong className="kpi-value">
-            {unavailable ? "—" : currency.format(payroll)}
+            {loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : currency.format(payroll)}
           </strong>
           <p className="kpi-helper">Soma dos salários dos ativos</p>
         </div>
@@ -318,7 +306,8 @@ export default function Funcionarios() {
                   </td>
                 </tr>
               ))}
-            {(unavailable || !pageItems.length) && (
+            {loading && <TableSkeleton cols={8} />}
+            {!loading && (unavailable || !pageItems.length) && (
               <tr>
                 <td colSpan={8} className="func-empty">
                   {loading

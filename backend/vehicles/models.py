@@ -1,4 +1,6 @@
 from django.db import models
+from django.utils import timezone
+
 from .enums import StatusPreparacao, StatusRevisao, StatusVeiculo
 
 class Marca(models.Model):
@@ -44,6 +46,8 @@ class Veiculo(models.Model):
     modelo = models.CharField(max_length=60)
     placa = models.CharField(max_length=8, unique=True)
     vaga = models.CharField(max_length=10, blank=True, default="")
+    custo_aquisicao = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    observacoes = models.TextField(blank=True, default="")
 
     marca = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name="veiculos")
     cambio = models.ForeignKey(Cambio, on_delete=models.PROTECT, related_name="veiculos")
@@ -87,3 +91,60 @@ class Imagem(models.Model):
 
     def __str__(self):
         return f"Imagem {self.pk} de {self.veiculo_id}"
+
+
+class OpcionalVeiculo(models.Model):
+    """Item de série/opcional do veículo (ar-condicionado, ABS...). Texto livre: não há lista pré-cadastrada."""
+
+    veiculo = models.ForeignKey(Veiculo, on_delete=models.CASCADE, related_name="opcionais")
+    nome = models.CharField(max_length=60)
+
+    class Meta:
+        ordering = ["nome", "id"]
+        constraints = [models.UniqueConstraint(fields=["veiculo", "nome"], name="opcional_unico_por_veiculo")]
+
+    def __str__(self):
+        return f"{self.nome} ({self.veiculo_id})"
+
+
+class SinistroVeiculo(models.Model):
+    """Histórico de sinistro do veículo: no máximo um registro por veículo."""
+
+    veiculo = models.OneToOneField(Veiculo, on_delete=models.CASCADE, related_name="sinistro")
+    teve_sinistro = models.BooleanField(default=False)
+    de_leilao = models.BooleanField(default=False, help_text="O veículo veio de leilão")
+    perda_total = models.BooleanField(default=False, help_text="Deu perda total (PT)")
+    descricao = models.TextField(blank=True, default="")
+
+    def __str__(self):
+        return f"Sinistro do veículo {self.veiculo_id}"
+
+
+class DocumentoVeiculo(models.Model):
+    """Situação de um documento do veículo (CRLV, IPVA, laudo...). Só o status; o arquivo não é guardado aqui."""
+
+    veiculo = models.ForeignKey(Veiculo, on_delete=models.CASCADE, related_name="documentos")
+    nome = models.CharField(max_length=60)
+    situacao = models.CharField(max_length=30, help_text='Texto exibido, ex.: "Em dia", "Pago", "Pendente"')
+    regular = models.BooleanField(default=True, help_text="False = pendência (aparece com o ícone de relógio)")
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.nome} ({self.veiculo_id})"
+
+
+class HistoricoVeiculo(models.Model):
+    """Linha do tempo do veículo no pátio."""
+
+    veiculo = models.ForeignKey(Veiculo, on_delete=models.CASCADE, related_name="historico")
+    titulo = models.CharField(max_length=100)
+    data_hora = models.DateTimeField(default=timezone.now)
+    positivo = models.BooleanField(default=False, help_text="Destaca o marco em verde (ex.: proposta recebida)")
+
+    class Meta:
+        ordering = ["data_hora", "id"]
+
+    def __str__(self):
+        return f"{self.titulo} ({self.veiculo_id})"

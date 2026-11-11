@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { api } from '../../api/client'
+import { toast } from '../../utils/toast'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import { Modal } from '../../components/Modal'
 import type { ContaPagarApi, ContaReceberApi, Paginated } from '../../types'
@@ -8,6 +9,7 @@ import type { FuncionarioApi } from '../Funcionarios/funcionariosData'
 import { ContaFormModal } from './ContaFormModal'
 import { ContasTable, type ContasTab } from './ContasTable'
 import { CategoriasChart, FluxoCaixaChart } from './FinanceiroCharts'
+import { ChartSkeleton, KpiSkeleton } from '../../components/Skeleton'
 import {
   contaPath,
   currency,
@@ -171,6 +173,9 @@ export default function Financeiro() {
           ? fromContaReceber(await api<ContaReceberApi>(contaPath(conta), options))
           : fromContaPagar(await api<ContaPagarApi>(contaPath(conta), options))
       setContas((prev) => prev.map((c) => (c.key === updated.key ? updated : c)))
+      toast.success(
+        status === 'pendente' ? 'Conta marcada como pendente.' : conta.kind === 'receber' ? 'Conta marcada como recebida.' : 'Conta marcada como paga.',
+      )
     } catch (err) {
       setActionError(`Não foi possível atualizar "${conta.description}": ${(err as Error).message}`)
     } finally {
@@ -182,6 +187,7 @@ export default function Financeiro() {
     setContas((prev) =>
       prev.some((c) => c.key === conta.key) ? prev.map((c) => (c.key === conta.key ? conta : c)) : [...prev, conta],
     )
+    toast.success(editor?.conta ? 'Conta atualizada com sucesso!' : 'Conta cadastrada com sucesso!')
     setEditor(null)
   }
 
@@ -197,6 +203,7 @@ export default function Financeiro() {
       await api<null>(contaPath(deletion), { method: 'DELETE' })
       setContas((prev) => prev.filter((c) => c.key !== deletion.key))
       setDeletion(null)
+      toast.success('Conta excluída com sucesso!')
     } catch (err) {
       setDeleteError((err as Error).message)
     } finally {
@@ -246,7 +253,7 @@ export default function Financeiro() {
               <h3>{kpi.label}</h3>
               <ChangeBadge change={kpi.change} goodWhenUp={kpi.goodWhenUp} />
             </div>
-            <strong className="kpi-value">{currency.format(kpi.value)}</strong>
+            <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(kpi.value)}</strong>
             <p className="kpi-helper">{kpi.helper}</p>
             {kpi.highlight && <span className="fx-kpi-highlight">{kpi.highlight}</span>}
           </div>
@@ -273,8 +280,21 @@ export default function Financeiro() {
       </div>
 
       <div className="fx-charts">
-        <FluxoCaixaChart contas={periodContas} range={range} />
-        <CategoriasChart contas={periodContas} />
+        {loading ? (
+          <>
+            <div className="card fx-chart-card">
+              <ChartSkeleton height={240} />
+            </div>
+            <div className="card fx-chart-card">
+              <ChartSkeleton height={240} />
+            </div>
+          </>
+        ) : (
+          <>
+            <FluxoCaixaChart contas={periodContas} range={range} />
+            <CategoriasChart contas={periodContas} />
+          </>
+        )}
       </div>
 
       <ContasTable
