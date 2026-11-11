@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pencil, PhoneCall, Plus, Search, UserCheck, UserX } from 'lucide-react'
 import { api } from '../../api/client'
+import { KpiSkeleton, TableSkeleton } from '../../components/Skeleton'
+import { toast } from '../../utils/toast'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import type { ClienteApi, Paginated } from '../../types'
@@ -158,6 +160,7 @@ export default function Clientes() {
     setActionError('')
     try {
       substituir(await api<ClienteApi>(`/clientes/${cliente.id}/${caminho}`, { method: 'POST' }))
+      toast.success(caminho === 'interacao' ? 'Contato criado com sucesso!' : 'Cliente reativado com sucesso!')
       return true
     } catch (err) {
       setActionError(`Não foi possível ${descricao} ${cliente.pessoa.nome}: ${(err as Error).message}`)
@@ -174,6 +177,7 @@ export default function Clientes() {
     try {
       substituir(await api<ClienteApi>(`/clientes/${inativando.id}/inativar`, { method: 'POST' }))
       setInativando(null)
+      toast.success('Cliente inativado com sucesso!')
     } catch (err) {
       setInativarErro((err as Error).message)
     } finally {
@@ -215,7 +219,7 @@ export default function Clientes() {
           <div className="kpi-card-header">
             <h3>Total de clientes</h3>
           </div>
-          <strong className="kpi-value">{loading ? '…' : clientes.length}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : clientes.length}</strong>
           <p className="kpi-helper">
             {ativos.length} ativos · {clientes.length - ativos.length} outros
           </p>
@@ -226,7 +230,7 @@ export default function Clientes() {
             <h3>Em negociação</h3>
             <span className="trend-badge trend-neutral">Funil</span>
           </div>
-          <strong className="kpi-value">{loading ? '…' : emNegociacao.length}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : emNegociacao.length}</strong>
           <p className="kpi-helper">Com negociação aberta no Funil de Vendas</p>
         </div>
 
@@ -234,7 +238,7 @@ export default function Clientes() {
           <div className="kpi-card-header">
             <h3>LTV médio</h3>
           </div>
-          <strong className="kpi-value">{loading ? '…' : currency.format(ltvMedio)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(ltvMedio)}</strong>
           <p className="kpi-helper">Quanto cada cliente que já comprou gastou na loja</p>
         </div>
 
@@ -245,7 +249,7 @@ export default function Clientes() {
               {reativar.length ? 'Oportunidade' : 'Ok'}
             </span>
           </div>
-          <strong className="kpi-value">{loading ? '…' : reativar.length}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : reativar.length}</strong>
           <p className="kpi-helper">Inativos que já compraram conosco</p>
         </div>
       </div>
@@ -405,7 +409,8 @@ export default function Clientes() {
                   </tr>
                 )
               })}
-              {pageItems.length === 0 && (
+              {loading && <TableSkeleton cols={9} />}
+              {!loading && pageItems.length === 0 && (
                 <tr>
                   <td colSpan={9} className="cl-empty">
                     {loading ? 'Carregando…' : 'Nenhum cliente encontrado para esses filtros.'}
@@ -433,6 +438,7 @@ export default function Clientes() {
           onSaved={(cliente) => {
             substituir(cliente)
             setEditor(null)
+            toast.success(editor.cliente ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado com sucesso!')
           }}
         />
       )}

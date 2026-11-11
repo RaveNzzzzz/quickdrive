@@ -52,6 +52,49 @@ export type VeiculoApi = {
   imagem_url: string | null
   /** Galeria completa. Só vem preenchida ao buscar um veículo específico (não na listagem). */
   imagens: ImagemVeiculoApi[]
+  custo_aquisicao: number
+  observacoes: string
+  /** Os cinco abaixo, como as imagens, só vêm preenchidos ao buscar um veículo específico. */
+  opcionais: OpcionalVeiculoApi[]
+  documentos: DocumentoVeiculoApi[]
+  custos_preparacao: CustoPreparacaoApi[]
+  historico: HistoricoVeiculoApi[]
+  sinistro: SinistroVeiculoApi | null
+}
+
+export type OpcionalVeiculoApi = { id: number; nome: string }
+
+export type SinistroVeiculoApi = {
+  teve_sinistro: boolean
+  de_leilao: boolean
+  perda_total: boolean
+  descricao: string
+}
+
+export type DocumentoVeiculoApi = {
+  id: number
+  nome: string
+  /** Texto exibido, ex.: "Em dia", "Pago", "Pendente". */
+  situacao: string
+  /** false = pendência. */
+  regular: boolean
+}
+
+export type CustoPreparacaoApi = {
+  id: number
+  nome: string
+  custo: number
+  /** AAAA-MM-DD */
+  data: string
+  status: string
+}
+
+export type HistoricoVeiculoApi = {
+  id: number
+  titulo: string
+  /** Data e hora em ISO 8601. */
+  data_hora: string
+  positivo: boolean
 }
 
 export type VeiculoPayload = {
@@ -75,6 +118,8 @@ export type VeiculoPayload = {
   valor: number
   status: string
   vaga: string
+  custo_aquisicao: number
+  observacoes: string
 }
 export type CategoriaProdutoApi = OpcaoApi
 export type ProdutoApi = {

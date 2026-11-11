@@ -1,3 +1,4 @@
+import { Skeleton } from './Skeleton'
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { api } from '../api/client'
@@ -87,7 +88,7 @@ export function Sidebar() {
           {error
             ? 'Não foi possível carregar as vendas'
             : vendido === null
-              ? 'Carregando…'
+              ? <Skeleton width="80%" height={12} />
               : `${currency.format(vendido)} de ${currency.format(metaFaturamento)}`}
         </p>
       </div>

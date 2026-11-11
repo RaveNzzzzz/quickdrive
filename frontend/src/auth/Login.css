@@ -1,4 +1,21 @@
 .login-page {
+  /* A tela de login tem visual próprio e fica sempre no tema claro. */
+  --text: #2f3238;
+  --text-h: #000000;
+  --text-muted: #37393d;
+  --bg: #eef0f4;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --accent: #3b6dfa;
+  --accent-h: #6d5bf7;
+  --accent-bg: #eaf1ff;
+  --danger: #e11d48;
+  --danger-bg: #fee2e2;
+  --success: #16a34a;
+  --success-bg: #dcfce7;
+  --warning: #d97706;
+  --warning-bg: #fef3c7;
+  color-scheme: light;
   --login-blue: #1570ef;
   --login-blue-h: #0f5fd1;
   --login-logo: #0ba0e3;
@@ -11,7 +28,7 @@
   padding: 40px 16px;
   background: #ffffff;
   overflow: hidden;
-  font-family: 'Poppins', var(--sans);
+  font-family: var(--sans);
 }
 
 .login-waves {
@@ -58,7 +75,7 @@
 }
 
 .login-card h1 {
-  font-family: 'Poppins', var(--sans);
+  font-family: var(--sans);
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -91,7 +108,7 @@
   border: 1px solid #d0d5dd;
   border-radius: 6px;
   background: #ffffff;
-  font: 14px 'Poppins', var(--sans);
+  font: 14px var(--sans);
   color: var(--text-h);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -140,7 +157,7 @@
   padding: 0;
   border: 0;
   background: none;
-  font: 16px 'Poppins', var(--sans);
+  font: 16px var(--sans);
   color: var(--login-blue);
   cursor: pointer;
 }
@@ -162,7 +179,7 @@
   border-radius: 6px;
   background: var(--login-blue);
   color: #ffffff;
-  font: 500 16px 'Poppins', var(--sans);
+  font: 500 16px var(--sans);
   cursor: pointer;
   transition: background 0.15s;
 }

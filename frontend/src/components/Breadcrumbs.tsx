@@ -18,7 +18,7 @@ const SECTION_LABELS: Record<string, string> = {
 
 // Nome da tela de detalhe de cada seção (ex.: /patio/12).
 const DETAIL_LABELS: Record<string, string> = {
-  patio: 'Ficha do veículo',
+  patio: 'Ficha (Veículo)',
   perfil: 'Trocar senha',
 }
 

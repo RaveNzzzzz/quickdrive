@@ -1,3 +1,4 @@
+import { toast } from '../utils/toast'
 const API_URL = import.meta.env.VITE_API_URL as string
 
 /** Monta a URL completa de um caminho da API (usado em <img src>, que não passa pelo api()). */
@@ -64,6 +65,9 @@ function errorMessage(detail: unknown): string | undefined {
   return undefined
 }
 
+// Rotas em que o erro já aparece na própria tela (login e troca de senha) — sem aviso duplicado.
+const SEM_AVISO_DE_ERRO = /^\/(token|contas\/senha)/
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Em upload (FormData) NÃO podemos definir o Content-Type: o navegador coloca sozinho,
   // com o "boundary" que separa os campos. Para JSON, continua application/json.
@@ -79,7 +83,19 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       },
     })
 
-  let res = await request(tokens.access)
+  const metodo = (options.method ?? 'GET').toUpperCase()
+  // Falhas de gravação (criar, editar, excluir) viram um aviso vermelho no canto da tela.
+  const avisar = (mensagem: string) => {
+    if (metodo !== 'GET' && !SEM_AVISO_DE_ERRO.test(path)) toast.error(mensagem)
+  }
+
+  let res: Response
+  try {
+    res = await request(tokens.access)
+  } catch (err) {
+    avisar('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.')
+    throw err
+  }
 
   if (res.status === 401 && (await refreshAccessToken())) {
     res = await request(tokens.access)
@@ -87,7 +103,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}))
-    throw new Error(errorMessage(detail.detail) ?? `Erro ${res.status}`)
+    const mensagem = errorMessage(detail.detail) ?? `Erro ${res.status}`
+    avisar(mensagem)
+    throw new Error(mensagem)
   }
 
   return res.status === 204 ? (null as T) : ((await res.json()) as T)

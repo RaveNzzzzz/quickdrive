@@ -120,7 +120,7 @@
 
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn-primary:hover {
@@ -286,8 +286,8 @@
 }
 
 .pagination-page.active {
-  background: var(--text-h);
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 /* Main column */
@@ -302,4 +302,30 @@
 .app-content {
   flex: 1;
   padding: 24px 32px 32px;
+}
+
+/* Tema de alto contraste: cards e controles com borda forte. */
+
+:root[data-theme='contrast'] .card {
+  border: var(--card-border);
+}
+
+:root[data-theme='contrast'] .btn-outline,
+:root[data-theme='contrast'] input,
+:root[data-theme='contrast'] select,
+:root[data-theme='contrast'] textarea {
+  border: 2px solid #000;
+}
+
+/* Gráficos (Recharts): o tooltip padrão é branco; acompanha o tema. */
+
+.recharts-default-tooltip {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-h);
+}
+
+.recharts-tooltip-label,
+.recharts-tooltip-item {
+  color: var(--text-h) !important;
 }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { Plus, Search } from "lucide-react";
 import { api } from "../../api/client";
+import { toast } from "../../utils/toast";
+import { KpiSkeleton, Skeleton } from "../../components/Skeleton";
 import { useAuth } from "../../auth/AuthContext";
 import { Modal } from "../../components/Modal";
 import { avisarAlertasMudaram } from "../../hooks/useAlertas";
@@ -256,6 +258,7 @@ export default function FunilClientes() {
       setNegociacoes((prev) => prev.filter((x) => x.id !== exclusao.id));
       setExclusao(null);
       setEditor(null);
+      toast.success("Negociação excluída com sucesso!");
       avisarAlertasMudaram();
     } catch (err) {
       setExclusaoErro((err as Error).message);
@@ -332,7 +335,7 @@ export default function FunilClientes() {
             </span>
           </div>
           <strong className="kpi-value">
-            {loading ? "…" : currency.format(indicadores.emAberto)}
+            {loading ? <KpiSkeleton /> : currency.format(indicadores.emAberto)}
           </strong>
           <p className="kpi-helper">
             Soma das propostas (ou do preço anunciado)
@@ -343,7 +346,7 @@ export default function FunilClientes() {
             <h3>Taxa de conversão</h3>
           </div>
           <strong className="kpi-value">
-            {indicadores.conversao === null ? "—" : `${indicadores.conversao}%`}
+            {loading ? <KpiSkeleton width={70} /> : indicadores.conversao === null ? "—" : `${indicadores.conversao}%`}
           </strong>
           <p className="kpi-helper">
             Vendidas entre as {indicadores.encerradas} encerradas nos últimos{" "}
@@ -355,9 +358,13 @@ export default function FunilClientes() {
             <h3>Tempo até vender</h3>
           </div>
           <strong className="kpi-value">
-            {indicadores.tempoMedio === null
-              ? "—"
-              : `${indicadores.tempoMedio} dias`}
+            {loading ? (
+              <KpiSkeleton width={90} />
+            ) : indicadores.tempoMedio === null ? (
+              "—"
+            ) : (
+              `${indicadores.tempoMedio} dias`
+            )}
           </strong>
           <p className="kpi-helper">Média do primeiro contato até a venda</p>
         </div>
@@ -366,7 +373,7 @@ export default function FunilClientes() {
             <h3>Principal motivo de perda</h3>
           </div>
           <strong className="kpi-value funil-kpi-text">
-            {indicadores.motivo?.label ?? "—"}
+            {loading ? <KpiSkeleton width={140} /> : (indicadores.motivo?.label ?? "—")}
           </strong>
           <p className="kpi-helper">
             {indicadores.motivo
@@ -509,7 +516,10 @@ export default function FunilClientes() {
 
               <div className="funil-cards">
                 {loading && cards.length === 0 && (
-                  <p className="funil-empty">Carregando…</p>
+                  <div className="skeleton-stack" aria-label="Carregando negociações">
+                    <Skeleton height={92} radius={12} />
+                    <Skeleton height={92} radius={12} />
+                  </div>
                 )}
                 {!loading && cards.length === 0 && (
                   <p className="funil-empty">
@@ -595,6 +605,11 @@ export default function FunilClientes() {
           onSaved={(n) => {
             atualizar(n);
             setEditor(null);
+            toast.success(
+              editor.negociacao
+                ? "Negociação atualizada com sucesso!"
+                : "Negociação criada com sucesso!",
+            );
           }}
           onDelete={(n) => {
             // Fecha o formulário antes de abrir a confirmação, para não ficarem dois pop-ups abertos.

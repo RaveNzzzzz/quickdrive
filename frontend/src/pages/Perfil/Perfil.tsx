@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth, type User } from "../../auth/AuthContext";
 import { api } from "../../api/client";
+import { Skeleton } from "../../components/Skeleton";
 import "./Perfil.css";
 
 export default function Perfil() {
@@ -39,7 +40,27 @@ export default function Perfil() {
         </button>
       </div>
     );
-  if (!profile) return <p role="status">Carregando perfil…</p>;
+  if (!profile)
+    return (
+      <div className="perfil-page" role="status" aria-busy="true" aria-label="Carregando perfil">
+        <section className="card perfil-summary">
+          <Skeleton width={64} height={64} radius={999} />
+          <div className="skeleton-stack" style={{ flex: 1 }}>
+            <Skeleton width="40%" height={20} />
+            <Skeleton width="25%" height={14} />
+          </div>
+        </section>
+        <section className="card perfil-section">
+          <Skeleton width="30%" height={20} />
+          <div className="skeleton-stack" style={{ marginTop: 16 }}>
+            <Skeleton height={16} />
+            <Skeleton height={16} />
+            <Skeleton height={16} width="70%" />
+            <Skeleton height={16} width="85%" />
+          </div>
+        </section>
+      </div>
+    );
   const person = profile.funcionario?.pessoa;
   const address = person?.endereco;
 

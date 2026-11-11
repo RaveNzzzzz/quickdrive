@@ -1,3 +1,4 @@
+import { SkeletonText } from '../../components/Skeleton'
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { api } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
@@ -366,7 +367,7 @@ export function NegociacaoFormModal({ negociacao, etapaInicial, podeEditar, onCl
           <section className="funil-historico" aria-label="Histórico de etapas">
             <h3>Histórico</h3>
             {historico === null ? (
-              <p>Carregando…</p>
+              <SkeletonText lines={3} />
             ) : (
               <ol>
                 {historico.map((e) => (

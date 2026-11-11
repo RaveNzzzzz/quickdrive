@@ -1,6 +1,8 @@
-import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
+import { KpiSkeleton, TableSkeleton } from "../../components/Skeleton";
+import { toast } from "../../utils/toast";
 import { Modal } from "../../components/Modal";
 import { Pagination } from "../../components/Pagination";
 import type { CategoriaProdutoApi, LoteApi, ProdutoApi } from "../../types";
@@ -16,7 +18,6 @@ export default function Estoque() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [low, setLow] = useState(false);
@@ -54,11 +55,6 @@ export default function Estoque() {
       active = false;
     };
   }, [attempt]);
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 5000);
-    return () => clearTimeout(timer);
-  }, [notice]);
   const rows = useMemo(
     () => toProducts(products, categories, lots),
     [products, categories, lots],
@@ -101,7 +97,7 @@ export default function Estoque() {
         item as LoteApi,
       ]);
     setEditor(null);
-    setNotice(kind === "lote" && !editor?.item
+    toast.success(kind === "lote" && !editor?.item
       ? "Lote cadastrado. A conta está em Financeiro → A pagar."
       : "Registro salvo com sucesso.");
   }
@@ -121,7 +117,7 @@ export default function Estoque() {
         setProducts((prev) => prev.filter((p) => p.id !== deletion.id));
       else setLots((prev) => prev.filter((p) => p.id !== deletion.id));
       setDeletion(null);
-      setNotice("Registro excluído com sucesso.");
+      toast.success("Registro excluído com sucesso.");
     } catch (err) {
       setDeleteError(
         err instanceof Error ? err.message : "Não foi possível excluir.",
@@ -132,32 +128,24 @@ export default function Estoque() {
   }
   return (
     <div className="estoque-page">
-      {notice && (
-        <div className="estoque-notice" role="status">
-          {notice}
-          <button aria-label="Fechar aviso" onClick={() => setNotice("")}>
-            <X size={16} />
-          </button>
-        </div>
-      )}
       <div className="kpi-row kpi-row-4">
         <div className="card kpi-card">
           <h3>Itens cadastrados</h3>
           <strong className="kpi-value">
-            {unavailable ? "—" : rows.length}
+            {loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : rows.length}
           </strong>
           <p className="kpi-helper">Em {categories.length} categorias</p>
         </div>
         <div className="card kpi-card">
           <h3>Unidades em estoque</h3>
           <strong className="kpi-value">
-            {unavailable ? "—" : rows.reduce((sum, p) => sum + p.quantity, 0)}
+            {loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : rows.reduce((sum, p) => sum + p.quantity, 0)}
           </strong>
           <p className="kpi-helper">Soma das quantidades dos lotes</p>
         </div>
         <div className="card kpi-card">
           <h3>Valor em estoque</h3>
-          <strong className="kpi-value">{unavailable ? "—" : valuation.value}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : valuation.value}</strong>
           <p className="kpi-helper">
             {!unavailable && valuation.missing
               ? `${valuation.missing} ${valuation.missing === 1 ? "produto com saldo sem valor" : "produtos com saldo sem valor"}`
@@ -175,7 +163,7 @@ export default function Estoque() {
         >
           <h3>Estoque baixo</h3>
           <strong className="kpi-value">
-            {unavailable ? "—" : rows.filter((p) => p.quantity <= 3).length}
+            {loading ? <KpiSkeleton width={90} /> : unavailable ? "—" : rows.filter((p) => p.quantity <= 3).length}
           </strong>
           <p className="kpi-helper">
             Até 3 unidades · clique para {low ? "limpar" : "filtrar"}
@@ -306,7 +294,8 @@ export default function Estoque() {
                     </td>
                   </tr>
                 ))}
-            {(unavailable || !filtered.length) && (
+            {loading && <TableSkeleton cols={6} />}
+            {!loading && (unavailable || !filtered.length) && (
               <tr>
                 <td colSpan={6} className="estoque-empty">
                   {loading

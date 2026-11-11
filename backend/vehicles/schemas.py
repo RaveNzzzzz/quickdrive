@@ -1,12 +1,13 @@
 import re
-from datetime import date
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
 from ninja import Schema
 from pydantic import field_validator
 
-from .enums import StatusVeiculo
+from .enums import StatusPreparacao, StatusVeiculo
+from .models import SinistroVeiculo
 
 # Limites dos campos do veículo. O formulário do front usa os mesmos valores
 # (frontend/src/pages/Patio/veiculoLimites.ts) — se mudar aqui, mude lá também.
@@ -32,6 +33,7 @@ TEXTOS = {
     "motorizacao": ("Motorização", 30, True),
     "vaga": ("Vaga", 10, False),
 }
+OBSERVACOES_MAX = 2000
 
 
 def renavam_valido(renavam: str) -> bool:
@@ -140,6 +142,25 @@ class _VeiculoValidacoes(Schema):
             raise ValueError("O preço deve estar entre R$ 0,01 e R$ 99.999.999,99.")
         return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    @field_validator("custo_aquisicao", check_fields=False)
+    @classmethod
+    def _custo_aquisicao(cls, valor):
+        if valor is None:
+            return valor
+        if not (0 <= valor <= VALOR_MAX):
+            raise ValueError("O custo de aquisição deve estar entre R$ 0,00 e R$ 99.999.999,99.")
+        return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @field_validator("observacoes", check_fields=False)
+    @classmethod
+    def _observacoes(cls, valor):
+        if valor is None:
+            return valor
+        valor = valor.strip()
+        if len(valor) > OBSERVACOES_MAX:
+            raise ValueError(f"As observações aceitam no máximo {OBSERVACOES_MAX} caracteres.")
+        return valor
+
     @field_validator("status", check_fields=False)
     @classmethod
     def _status(cls, valor):
@@ -202,6 +223,141 @@ class CarroceriaIn(_OpcaoIn):
     pass
 
 
+# --- Dados complementares da ficha do veículo ---
+
+
+def _texto_obrigatorio(valor: str, rotulo: str, maximo: int) -> str:
+    valor = " ".join(valor.split())
+    if not valor:
+        raise ValueError(f"Informe {rotulo}.")
+    if len(valor) > maximo:
+        raise ValueError(f"O campo ({rotulo}) aceita no máximo {maximo} caracteres.")
+    return valor
+
+
+class OpcionalOut(Schema):
+    id: int
+    nome: str
+
+
+class OpcionaisIn(Schema):
+    # Lista completa de opcionais do veículo (substitui a atual). Nomes repetidos são ignorados.
+    nomes: list[str]
+
+    @field_validator("nomes")
+    @classmethod
+    def _nomes(cls, valor):
+        if len(valor) > 60:
+            raise ValueError("Informe no máximo 60 opcionais.")
+        vistos, limpos = set(), []
+        for nome in valor:
+            nome = " ".join(nome.split())
+            if not nome:
+                continue
+            if len(nome) > 60:
+                raise ValueError("Cada opcional aceita no máximo 60 caracteres.")
+            if nome.casefold() not in vistos:
+                vistos.add(nome.casefold())
+                limpos.append(nome)
+        return limpos
+
+
+class SinistroIn(Schema):
+    teve_sinistro: bool = False
+    de_leilao: bool = False
+    perda_total: bool = False
+    descricao: str = ""
+
+    @field_validator("descricao")
+    @classmethod
+    def _descricao(cls, valor):
+        valor = valor.strip()
+        if len(valor) > OBSERVACOES_MAX:
+            raise ValueError(f"A descrição aceita no máximo {OBSERVACOES_MAX} caracteres.")
+        return valor
+
+
+class SinistroOut(Schema):
+    teve_sinistro: bool
+    de_leilao: bool
+    perda_total: bool
+    descricao: str
+
+
+class DocumentoIn(Schema):
+    nome: str
+    situacao: str
+    regular: bool = True
+
+    @field_validator("nome")
+    @classmethod
+    def _nome(cls, valor):
+        return _texto_obrigatorio(valor, "nome do documento", 60)
+
+    @field_validator("situacao")
+    @classmethod
+    def _situacao(cls, valor):
+        return _texto_obrigatorio(valor, "situação", 30)
+
+
+class DocumentoOut(Schema):
+    id: int
+    nome: str
+    situacao: str
+    regular: bool
+
+
+class PreparacaoIn(Schema):
+    nome: str
+    custo: Decimal
+    data: date
+    status: str = "concluido"
+
+    @field_validator("nome")
+    @classmethod
+    def _nome(cls, valor):
+        return _texto_obrigatorio(valor, "descrição do custo", 100)
+
+    @field_validator("custo")
+    @classmethod
+    def _custo(cls, valor):
+        if not (0 <= valor <= VALOR_MAX):
+            raise ValueError("O custo deve estar entre R$ 0,00 e R$ 99.999.999,99.")
+        return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @field_validator("status")
+    @classmethod
+    def _status(cls, valor):
+        if valor not in StatusPreparacao.values:
+            raise ValueError("Status inválido.")
+        return valor
+
+
+class PreparacaoOut(Schema):
+    id: int
+    nome: str
+    custo: float
+    data: date
+    status: str
+
+
+class HistoricoIn(Schema):
+    titulo: str
+    positivo: bool = False
+
+    @field_validator("titulo")
+    @classmethod
+    def _titulo(cls, valor):
+        return _texto_obrigatorio(valor, "título", 100)
+
+
+class HistoricoOut(Schema):
+    id: int
+    titulo: str
+    data_hora: datetime
+    positivo: bool
+
+
 class VeiculoIn(_VeiculoValidacoes):
     ano_modelo: int
     ano_fabricacao: date
@@ -223,6 +379,8 @@ class VeiculoIn(_VeiculoValidacoes):
     combustivel_id: int
     carroceria_id: int
     vaga: str = ""
+    custo_aquisicao: Decimal = Decimal("0")
+    observacoes: str = ""
 
 class VeiculoUpdate(_VeiculoValidacoes):
     ano_modelo: int | None = None
@@ -245,6 +403,8 @@ class VeiculoUpdate(_VeiculoValidacoes):
     cambio_id: int | None = None
     combustivel_id: int | None = None
     carroceria_id: int | None = None
+    custo_aquisicao: Decimal | None = None
+    observacoes: str | None = None
 
 
 class ImagemOut(Schema):
@@ -292,10 +452,44 @@ class VeiculoOut(Schema):
     cambio_id: int
     combustivel_id: int
     carroceria_id: int
+    custo_aquisicao: float
+    observacoes: str
     # Caminho relativo à raiz da API (o front junta com VITE_API_URL). None = sem foto.
     imagem_url: str | None = None
     # Galeria completa (sem bytes). Só vem preenchida fora da listagem — ver resolve_imagens.
     imagens: list[ImagemOut] = []
+    # Dados da ficha. Como as imagens, só vêm preenchidos fora da listagem.
+    opcionais: list[OpcionalOut] = []
+    documentos: list[DocumentoOut] = []
+    custos_preparacao: list[PreparacaoOut] = []
+    historico: list[HistoricoOut] = []
+    sinistro: SinistroOut | None = None
+
+    @staticmethod
+    def _e_listagem(obj) -> bool:
+        return hasattr(obj, "imagem_principal")
+
+    @staticmethod
+    def resolve_opcionais(obj):
+        return [] if VeiculoOut._e_listagem(obj) else obj.opcionais.all()
+
+    @staticmethod
+    def resolve_documentos(obj):
+        return [] if VeiculoOut._e_listagem(obj) else obj.documentos.all()
+
+    @staticmethod
+    def resolve_custos_preparacao(obj):
+        return [] if VeiculoOut._e_listagem(obj) else obj.preparacoes.order_by("data", "id")
+
+    @staticmethod
+    def resolve_historico(obj):
+        return [] if VeiculoOut._e_listagem(obj) else obj.historico.all()
+
+    @staticmethod
+    def resolve_sinistro(obj):
+        if VeiculoOut._e_listagem(obj):
+            return None
+        return SinistroVeiculo.objects.filter(veiculo_id=obj.id).first()
 
     @staticmethod
     def _imagem_principal(obj):

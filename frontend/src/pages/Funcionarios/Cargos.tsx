@@ -2,6 +2,8 @@ import { useEffect, useId, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Pencil, Plus, Search } from 'lucide-react'
 import { api } from '../../api/client'
+import { toast } from '../../utils/toast'
+import { TableSkeleton } from '../../components/Skeleton'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import { listAll, listFuncionarios, type CargoApi, type SetorApi } from './funcionariosData'
@@ -21,7 +23,6 @@ export default function Cargos({ setores = false }: { setores?: boolean }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [editor, setEditor] = useState<CargoApi | SetorApi | 'new' | null>(null)
-  const [notice, setNotice] = useState('')
   useEffect(() => {
     let active = true
     Promise.all([listAll<CargoApi>('/cargos'), listAll<SetorApi>('/setores'), listFuncionarios()])
@@ -42,7 +43,7 @@ export default function Cargos({ setores = false }: { setores?: boolean }) {
   function saved(item: CargoApi | SetorApi) {
     if (isCargo(item)) setCargos(prev => [...prev.filter(c => c.id !== item.id), item].sort((a,b) => a.nome.localeCompare(b.nome)))
     else setSectors(prev => [...prev.filter(s => s.id !== item.id), item].sort((a,b) => a.nome.localeCompare(b.nome)))
-    setEditor(null); setNotice(`${setores ? 'Setor' : 'Cargo'} salvo com sucesso.`)
+    setEditor(null); toast.success(`${setores ? 'Setor' : 'Cargo'} salvo com sucesso.`)
   }
   return <div className="funcionarios-page">
     <h2>{setores ? 'Setores' : 'Cargos'}</h2>
@@ -53,7 +54,6 @@ export default function Cargos({ setores = false }: { setores?: boolean }) {
       <Link className="btn btn-outline" to={setores ? '/funcionarios/cargos' : '/funcionarios/setores'}>{setores ? 'Ver cargos' : 'Ver setores'}</Link>
       <button className="btn btn-primary" disabled={loading || !!error} onClick={() => setEditor('new')}><Plus size={16} />{setores ? 'Novo setor' : 'Novo cargo'}</button>
     </div></div>
-    {notice && <p className="func-notice" role="status">{notice}</p>}
     {error && <div className="func-error" role="alert">{error} <button className="btn btn-outline" onClick={() => { setError(''); setLoading(true); setAttempt(v => v+1) }}>Tentar novamente</button></div>}
     <div className="card table-card"><table className="data-table"><thead><tr><th>{setores ? 'Setor' : 'Cargo'}</th><th>{setores ? 'Cargos vinculados' : 'Setor'}</th>{!setores && <th>Papel de acesso</th>}<th>Funcionários ativos</th><th>Ações</th></tr></thead><tbody>
       {!loading && !error && filtered.slice((currentPage-1)*10, currentPage*10).map(item => <tr key={item.id}>
@@ -61,7 +61,8 @@ export default function Cargos({ setores = false }: { setores?: boolean }) {
         <td>{isCargo(item) ? counts[item.id] ?? 0 : cargos.filter(c => c.setor.id === item.id).reduce((sum,c) => sum+(counts[c.id] ?? 0),0)}</td>
         <td><button className="row-action row-action-edit" aria-label={`Editar ${item.nome}`} onClick={() => setEditor(item)}><Pencil size={15} /></button></td>
       </tr>)}
-      {(loading || error || !filtered.length) && <tr><td colSpan={setores ? 4 : 5} className="func-empty">{loading ? 'Carregando…' : error ? 'Listagem indisponível.' : 'Nenhum registro encontrado.'}</td></tr>}
+      {loading && <TableSkeleton cols={setores ? 4 : 5} />}
+      {!loading && (error || !filtered.length) && <tr><td colSpan={setores ? 4 : 5} className="func-empty">{loading ? 'Carregando…' : error ? 'Listagem indisponível.' : 'Nenhum registro encontrado.'}</td></tr>}
     </tbody></table></div>
     {!loading && !error && <Pagination page={currentPage} totalPages={totalPages} totalItems={filtered.length} pageSize={10} itemLabel={setores ? 'setores' : 'cargos'} onPageChange={setPage} />}
     {editor && <Editor setores={setores} item={editor === 'new' ? undefined : editor} sectors={sectors} onClose={() => setEditor(null)} onSaved={saved} />}

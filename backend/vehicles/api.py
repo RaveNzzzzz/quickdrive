@@ -13,7 +13,20 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from accounts.authentication import JWTAuth
 
 from .enums import StatusRevisao, StatusVeiculo
-from .models import Cambio, Carroceria, Combustivel, Imagem, Marca, Revisao, Veiculo
+from .models import (
+    Cambio,
+    Carroceria,
+    Combustivel,
+    DocumentoVeiculo,
+    HistoricoVeiculo,
+    Imagem,
+    Marca,
+    OpcionalVeiculo,
+    Preparacao,
+    Revisao,
+    SinistroVeiculo,
+    Veiculo,
+)
 from .schemas import (
     AlertaOut,
     CambioIn,
@@ -22,10 +35,20 @@ from .schemas import (
     CarroceriaOut,
     CombustivelIn,
     CombustivelOut,
+    DocumentoIn,
+    DocumentoOut,
+    HistoricoIn,
+    HistoricoOut,
     ImagemOut,
     ImagensOrdemIn,
     MarcaIn,
     MarcaOut,
+    OpcionaisIn,
+    OpcionalOut,
+    PreparacaoIn,
+    PreparacaoOut,
+    SinistroIn,
+    SinistroOut,
     VeiculoIn,
     VeiculoOut,
     VeiculoUpdate,
@@ -101,6 +124,7 @@ def create_veiculo(request, payload: VeiculoIn):
     _checar_anos(dados["ano_modelo"], dados["ano_fabricacao"])
     _checar_unicos(dados)
     veiculo = Veiculo.objects.create(**dados)
+    HistoricoVeiculo.objects.create(veiculo=veiculo, titulo="Entrada no pátio")
     return 201, veiculo
 
 
@@ -118,9 +142,14 @@ def update_veiculo(request, veiculo_id: int, payload: VeiculoUpdate):
         dados.get("ano_fabricacao", veiculo.ano_fabricacao),
     )
     _checar_unicos(dados, ignorar_id=veiculo.id)
+    status_anterior = veiculo.status
     for campo, valor in dados.items():
         setattr(veiculo, campo, valor)
     veiculo.save()
+    if veiculo.status != status_anterior:
+        HistoricoVeiculo.objects.create(
+            veiculo=veiculo, titulo=f"Status alterado para {veiculo.get_status_display()}"
+        )
     return veiculo
 
 
@@ -128,6 +157,80 @@ def update_veiculo(request, veiculo_id: int, payload: VeiculoUpdate):
 def delete_veiculo(request, veiculo_id: int):
     veiculo = get_object_or_404(Veiculo, id=veiculo_id)
     veiculo.delete()  # as imagens vão junto (on_delete=CASCADE)
+    return 204, None
+
+
+# --- Dados complementares da ficha (opcionais, sinistro, documentos, custos, histórico) ---
+
+
+@router.put("/{int:veiculo_id}/opcionais", response=list[OpcionalOut])
+@transaction.atomic
+def definir_opcionais(request, veiculo_id: int, payload: OpcionaisIn):
+    veiculo = get_object_or_404(Veiculo, id=veiculo_id)
+    veiculo.opcionais.all().delete()
+    OpcionalVeiculo.objects.bulk_create(
+        [OpcionalVeiculo(veiculo=veiculo, nome=nome) for nome in payload.nomes]
+    )
+    return veiculo.opcionais.all()
+
+
+@router.put("/{int:veiculo_id}/sinistro", response=SinistroOut)
+def definir_sinistro(request, veiculo_id: int, payload: SinistroIn):
+    veiculo = get_object_or_404(Veiculo, id=veiculo_id)
+    dados = payload.dict()
+    if dados["perda_total"] and not dados["teve_sinistro"]:
+        raise HttpError(422, "Perda total exige que o veículo tenha tido sinistro.")
+    sinistro, _ = SinistroVeiculo.objects.update_or_create(veiculo=veiculo, defaults=dados)
+    return sinistro
+
+
+@router.post("/{int:veiculo_id}/documentos", response={201: DocumentoOut})
+def criar_documento(request, veiculo_id: int, payload: DocumentoIn):
+    veiculo = get_object_or_404(Veiculo, id=veiculo_id)
+    if veiculo.documentos.filter(nome__iexact=payload.nome).exists():
+        raise HttpError(409, f'Já existe o documento "{payload.nome}" neste veículo.')
+    return 201, DocumentoVeiculo.objects.create(veiculo=veiculo, **payload.dict())
+
+
+@router.patch("/{int:veiculo_id}/documentos/{int:documento_id}", response=DocumentoOut)
+def atualizar_documento(request, veiculo_id: int, documento_id: int, payload: DocumentoIn):
+    documento = get_object_or_404(DocumentoVeiculo, id=documento_id, veiculo_id=veiculo_id)
+    outros = documento.veiculo.documentos.filter(nome__iexact=payload.nome).exclude(id=documento.id)
+    if outros.exists():
+        raise HttpError(409, f'Já existe o documento "{payload.nome}" neste veículo.')
+    for campo, valor in payload.dict().items():
+        setattr(documento, campo, valor)
+    documento.save()
+    return documento
+
+
+@router.delete("/{int:veiculo_id}/documentos/{int:documento_id}", response={204: None})
+def remover_documento(request, veiculo_id: int, documento_id: int):
+    get_object_or_404(DocumentoVeiculo, id=documento_id, veiculo_id=veiculo_id).delete()
+    return 204, None
+
+
+@router.post("/{int:veiculo_id}/custos-preparacao", response={201: PreparacaoOut})
+def criar_custo_preparacao(request, veiculo_id: int, payload: PreparacaoIn):
+    veiculo = get_object_or_404(Veiculo, id=veiculo_id)
+    return 201, Preparacao.objects.create(veiculo=veiculo, **payload.dict())
+
+
+@router.delete("/{int:veiculo_id}/custos-preparacao/{int:custo_id}", response={204: None})
+def remover_custo_preparacao(request, veiculo_id: int, custo_id: int):
+    get_object_or_404(Preparacao, id=custo_id, veiculo_id=veiculo_id).delete()
+    return 204, None
+
+
+@router.post("/{int:veiculo_id}/historico", response={201: HistoricoOut})
+def criar_historico(request, veiculo_id: int, payload: HistoricoIn):
+    veiculo = get_object_or_404(Veiculo, id=veiculo_id)
+    return 201, HistoricoVeiculo.objects.create(veiculo=veiculo, **payload.dict())
+
+
+@router.delete("/{int:veiculo_id}/historico/{int:historico_id}", response={204: None})
+def remover_historico(request, veiculo_id: int, historico_id: int):
+    get_object_or_404(HistoricoVeiculo, id=historico_id, veiculo_id=veiculo_id).delete()
     return 204, None
 
 

@@ -6,9 +6,9 @@
   --surface: #ffffff;
   --border: #e5e7eb;
 
-  --accent: #3b6dfa;
-  --accent-h: #6d5bf7;
-  --accent-bg: #eaf1ff;
+  --accent: #00a6f4;
+  --accent-h: #0090d6;
+  --accent-bg: #e0f4ff;
 
   --success: #16a34a;
   --success-bg: #dcfce7;
@@ -18,8 +18,10 @@
   --warning-bg: #fef3c7;
 
   --shadow: 0 10px 25px -8px rgba(20, 21, 26, 0.12);
+  --on-accent: #ffffff;
+  --card-border: 1px solid var(--border);
 
-  --sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --sans: "Plus Jakarta Sans", system-ui, "Segoe UI", Roboto, sans-serif;
 
   font: 14px/1.5 var(--sans);
   color-scheme: light;
@@ -68,4 +70,65 @@ p {
 
 button {
   font-family: inherit;
+}
+
+
+/* ---------- Temas ----------
+   O tema vem do atributo data-theme no <html> ("light" é o padrão):
+   "dark" = escuro, "contrast" = alto contraste (claro, com bordas e textos reforçados). */
+
+:root[data-theme='dark'] {
+  --text: #d5d9e0;
+  --text-h: #ffffff;
+  --text-muted: #9ca5b5;
+  --bg: #0e1117;
+  --surface: #171b24;
+  --border: #2b3140;
+
+  --accent: #00a6f4;
+  --accent-h: #36bbf8;
+  --accent-bg: rgba(0, 166, 244, 0.16);
+
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.14);
+  --danger: #fb7185;
+  --danger-bg: rgba(251, 113, 133, 0.15);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.14);
+
+  --shadow: 0 10px 25px -8px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+:root[data-theme='contrast'] {
+  --text: #111111;
+  --text-h: #000000;
+  --text-muted: #333333;
+  --bg: #e4e4e4;
+  --surface: #ffffff;
+  --border: #4a4a4a;
+
+  --accent: #0057b8;
+  --accent-h: #003f88;
+  --accent-bg: #d6e6ff;
+
+  --success: #00692a;
+  --success-bg: #d2f0dc;
+  --danger: #b00020;
+  --danger-bg: #fbd5da;
+  --warning: #7a4200;
+  --warning-bg: #fde4b8;
+
+  --shadow: none;
+  --card-border: 2px solid #000000;
+  color-scheme: light;
+}
+
+:root[data-theme='contrast'] :focus-visible {
+  outline: 3px solid #000000;
+  outline-offset: 2px;
+}
+
+:root[data-theme='contrast'] body {
+  font-weight: 500;
 }

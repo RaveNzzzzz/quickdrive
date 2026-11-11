@@ -11,7 +11,13 @@ import {
 import { GripVertical, Pencil, Plus, Star, Undo2, X } from 'lucide-react'
 import { api, apiUrl } from '../../api/client'
 import { Modal } from '../../components/Modal'
-import type { ImagemVeiculoApi, OpcaoApi, VeiculoApi, VeiculoPayload } from '../../types'
+import type {
+  ImagemVeiculoApi,
+  OpcaoApi,
+  SinistroVeiculoApi,
+  VeiculoApi,
+  VeiculoPayload,
+} from '../../types'
 import { STATUS_OPTIONS } from './veiculoStatus'
 import { OpcaoFormModal } from './OpcaoFormModal'
 import { OPCAO_ROTULOS, type TipoOpcao } from './opcoes'
@@ -54,6 +60,8 @@ type FormValues = {
   valor: string
   status: string
   vaga: string
+  custo_aquisicao: string
+  observacoes: string
 }
 
 type Options = {
@@ -108,6 +116,8 @@ function toFormValues(v?: VeiculoApi): FormValues {
     valor: v ? numeroParaValor(v.valor) : '',
     status: v?.status ?? 'disponivel',
     vaga: v?.vaga ?? '',
+    custo_aquisicao: v ? numeroParaValor(v.custo_aquisicao) : '',
+    observacoes: v?.observacoes ?? '',
   }
 }
 
@@ -136,8 +146,20 @@ function toPayload(v: FormValues): VeiculoPayload {
     valor: valorParaNumero(v.valor),
     status: v.status,
     vaga: limpar(v.vaga),
+    custo_aquisicao: valorParaNumero(v.custo_aquisicao),
+    observacoes: v.observacoes.trim(),
   }
 }
+
+const SINISTRO_VAZIO: SinistroVeiculoApi = {
+  teve_sinistro: false,
+  de_leilao: false,
+  perda_total: false,
+  descricao: '',
+}
+
+const OPCIONAL_MAX = 60
+const OBSERVACOES_MAX = 2000
 
 // Data local de hoje no formato do <input type="date"> (AAAA-MM-DD).
 function hojeIso(): string {
@@ -208,6 +230,13 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
     return atual ? { kind: 'existente', id: atual.id } : null
   })
   const [fotoError, setFotoError] = useState('')
+
+  // Opcionais (texto livre, sem lista pré-cadastrada) e registro de sinistro do veículo.
+  const opcionaisOriginais = (target?.opcionais ?? []).map((o) => o.nome)
+  const sinistroOriginal = target?.sinistro ?? SINISTRO_VAZIO
+  const [opcionais, setOpcionais] = useState<string[]>(opcionaisOriginais)
+  const [novoOpcional, setNovoOpcional] = useState('')
+  const [sinistro, setSinistro] = useState<SinistroVeiculoApi>(sinistroOriginal)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
   // Libera os endereços temporários (blob:) das fotos novas quando o modal fecha.
@@ -318,12 +347,31 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
 
   const fid = (key: keyof FormValues) => `${uid}-${key}`
 
+  function adicionarOpcional() {
+    const nome = novoOpcional.trim().replace(/\s+/g, ' ')
+    if (!nome) return
+    if (!opcionais.some((o) => o.toLowerCase() === nome.toLowerCase())) {
+      setOpcionais((lista) => [...lista, nome])
+    }
+    setNovoOpcional('')
+  }
+
+  function atualizarSinistro(parcial: Partial<SinistroVeiculoApi>) {
+    setSinistro((atual) => {
+      const novo = { ...atual, ...parcial }
+      // Perda total só existe depois de um sinistro (a API também exige isso).
+      if (parcial.perda_total) novo.teve_sinistro = true
+      if (parcial.teve_sinistro === false) novo.perda_total = false
+      return novo
+    })
+  }
+
   // `filtro` limpa o que foi digitado antes de guardar — é ele que impede passar do limite.
   const bind = (key: keyof FormValues, filtro: (texto: string) => string = (texto) => texto) => ({
     id: fid(key),
     name: key,
     value: values[key],
-    onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       update(key, filtro(event.target.value)),
   })
 
@@ -506,6 +554,34 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
         } catch (err) {
           const motivo = err instanceof Error ? err.message : 'erro desconhecido'
           warning = `Veículo salvo, mas houve um problema com as fotos: ${motivo}`
+        }
+      }
+      // Passo 3: opcionais e sinistro também são endpoints próprios.
+      const opcionaisMudaram =
+        [...opcionais].sort().join('\u0000') !== [...opcionaisOriginais].sort().join('\u0000')
+      const sinistroMudou =
+        sinistro.teve_sinistro !== sinistroOriginal.teve_sinistro ||
+        sinistro.de_leilao !== sinistroOriginal.de_leilao ||
+        sinistro.perda_total !== sinistroOriginal.perda_total ||
+        sinistro.descricao.trim() !== sinistroOriginal.descricao
+      if (opcionaisMudaram || sinistroMudou) {
+        try {
+          if (opcionaisMudaram) {
+            await api<unknown>(`/veiculos/${saved.id}/opcionais`, {
+              method: 'PUT',
+              body: JSON.stringify({ nomes: opcionais }),
+            })
+          }
+          if (sinistroMudou) {
+            await api<unknown>(`/veiculos/${saved.id}/sinistro`, {
+              method: 'PUT',
+              body: JSON.stringify({ ...sinistro, descricao: sinistro.descricao.trim() }),
+            })
+          }
+          final = await api<VeiculoApi>(`/veiculos/${saved.id}`)
+        } catch (err) {
+          const motivo = err instanceof Error ? err.message : 'erro desconhecido'
+          warning = `${warning ? `${warning} ` : ''}Veículo salvo, mas houve um problema com os opcionais ou o sinistro: ${motivo}`
         }
       }
       onSaved(final, warning)
@@ -794,6 +870,108 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
               </select>,
             )}
             {field('vaga', 'Vaga (opcional)', <input {...bind('vaga')} maxLength={LIMITES.vaga} />)}
+            {field(
+              'custo_aquisicao',
+              'Custo de aquisição (R$)',
+              <input
+                {...bind('custo_aquisicao', valorDigitado)}
+                inputMode="numeric"
+                placeholder="0,00"
+                autoComplete="off"
+              />,
+            )}
+          </div>
+          <div className="vform-field vform-obs">
+            <label htmlFor={fid('observacoes')}>Observações (opcional)</label>
+            <textarea
+              {...bind('observacoes')}
+              rows={3}
+              maxLength={OBSERVACOES_MAX}
+              placeholder="Ex.: único dono, chave reserva, detalhes da preparação…"
+            />
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Opcionais (opcional)</legend>
+          <div className="vform-opcionais">
+            <div className="vform-opcionais-add">
+              <input
+                value={novoOpcional}
+                onChange={(event) => setNovoOpcional(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    adicionarOpcional()
+                  }
+                }}
+                maxLength={OPCIONAL_MAX}
+                placeholder="Ex.: Ar-condicionado, ABS, Teto solar…"
+                aria-label="Novo opcional"
+                autoComplete="off"
+              />
+              <button type="button" className="btn btn-outline" onClick={adicionarOpcional}>
+                <Plus size={16} />
+                Adicionar
+              </button>
+            </div>
+            {opcionais.length > 0 && (
+              <ul className="vform-chips">
+                {opcionais.map((nome) => (
+                  <li key={nome} className="vform-chip">
+                    {nome}
+                    <button
+                      type="button"
+                      onClick={() => setOpcionais((lista) => lista.filter((o) => o !== nome))}
+                      aria-label={`Remover ${nome}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Sinistro (opcional)</legend>
+          <div className="vform-checks">
+            <label>
+              <input
+                type="checkbox"
+                checked={sinistro.teve_sinistro}
+                onChange={(event) => atualizarSinistro({ teve_sinistro: event.target.checked })}
+              />
+              Teve sinistro
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={sinistro.de_leilao}
+                onChange={(event) => atualizarSinistro({ de_leilao: event.target.checked })}
+              />
+              Veio de leilão
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={sinistro.perda_total}
+                onChange={(event) => atualizarSinistro({ perda_total: event.target.checked })}
+              />
+              Deu perda total (PT)
+            </label>
+          </div>
+          <div className="vform-field vform-obs">
+            <label htmlFor={`${uid}-sinistro-descricao`}>Detalhes do sinistro</label>
+            <textarea
+              id={`${uid}-sinistro-descricao`}
+              value={sinistro.descricao}
+              onChange={(event) => atualizarSinistro({ descricao: event.target.value })}
+              rows={2}
+              maxLength={OBSERVACOES_MAX}
+              placeholder="Ex.: colisão frontal em 2023, reparo feito na concessionária…"
+            />
           </div>
         </fieldset>
       </form>

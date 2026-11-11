@@ -1,3 +1,4 @@
+import { SkeletonText } from './Skeleton'
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell, CheckCheck } from 'lucide-react'
@@ -107,7 +108,9 @@ export function NotificationsMenu() {
           {error ? (
             <p className="topbar-dropdown-empty">Não foi possível carregar as notificações.</p>
           ) : alertas === null ? (
-            <p className="topbar-dropdown-empty">Carregando…</p>
+            <div className="topbar-dropdown-empty" aria-label="Carregando notificações">
+              <SkeletonText lines={3} />
+            </div>
           ) : (
             unread.length === 0 && <p className="topbar-dropdown-empty">Tudo em dia por aqui.</p>
           )}

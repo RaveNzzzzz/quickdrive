@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDownWideNarrow, Car, ChevronRight, Plus, Search, X } from 'lucide-react'
+import { ArrowDownWideNarrow, Car, ChevronRight, Plus, Search } from 'lucide-react'
 import { Pagination } from '../../components/Pagination'
 import { api, apiUrl } from '../../api/client'
+import { toast } from '../../utils/toast'
+import { KpiSkeleton, Skeleton } from '../../components/Skeleton'
 import type { Paginated, VeiculoApi } from '../../types'
 import {
   lotCapacity,
@@ -84,7 +86,6 @@ export default function Patio() {
   const [error, setError] = useState('')
 
   const [creating, setCreating] = useState(false)
-  const [notice, setNotice] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -109,28 +110,22 @@ export default function Patio() {
   useEffect(() => {
     const state = location.state as { notice?: string } | null
     if (state?.notice) {
-      setNotice(state.notice)
+      toast.success(state.notice)
       navigate(location.pathname, { replace: true, state: null })
     }
   }, [location, navigate])
-
-  // O aviso some sozinho depois de alguns segundos.
-  useEffect(() => {
-    if (!notice) return
-    const timer = setTimeout(() => setNotice(''), 5000)
-    return () => clearTimeout(timer)
-  }, [notice])
 
   function handleCreated(saved: VeiculoApi, warning?: string) {
     const item = toPatioVehicle(saved)
     if (item) setPatioVehicles((prev) => [item, ...prev])
     setCreating(false)
-    setNotice(
-      warning ??
-        (item
+    if (warning) toast.error(warning)
+    else
+      toast.success(
+        item
           ? 'Veículo adicionado ao pátio.'
-          : 'Veículo cadastrado. Com esse status, ele não aparece no pátio.'),
-    )
+          : 'Veículo cadastrado. Com esse status, ele não aparece no pátio.',
+      )
   }
 
   const counts = useMemo(() => {
@@ -193,22 +188,13 @@ export default function Patio() {
 
   return (
     <div className="patio-page">
-      {notice && (
-        <div className="patio-notice" role="status">
-          <span>{notice}</span>
-          <button type="button" onClick={() => setNotice('')} aria-label="Fechar aviso">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       <div className="kpi-row kpi-row-4">
         <div className="card kpi-card">
           <div className="kpi-card-header">
             <h3>Veículos no pátio</h3>
             <span className="trend-badge trend-neutral">{freeSpots} vagas</span>
           </div>
-          <strong className="kpi-value">{patioVehicles.length}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton width={60} /> : patioVehicles.length}</strong>
           <p className="kpi-helper">Capacidade de {lotCapacity} vagas</p>
         </div>
 
@@ -217,7 +203,7 @@ export default function Patio() {
             <h3>Valor imobilizado</h3>
             <span className="trend-badge trend-neutral">Tabela</span>
           </div>
-          <strong className="kpi-value">{currency.format(totalValue)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(totalValue)}</strong>
           <p className="kpi-helper">Soma do preço de tabela</p>
         </div>
 
@@ -228,7 +214,7 @@ export default function Patio() {
               {averageDays <= targetAverageDays ? 'Na meta' : 'Fora da meta'}
             </span>
           </div>
-          <strong className="kpi-value">{averageDays} dias</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton width={80} /> : `${averageDays} dias`}</strong>
           <p className="kpi-helper">Meta interna: até {targetAverageDays} dias</p>
         </div>
 
@@ -239,7 +225,7 @@ export default function Patio() {
               {staleCount > 0 ? 'Atenção' : 'Ok'}
             </span>
           </div>
-          <strong className="kpi-value">{staleCount}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton width={40} /> : staleCount}</strong>
           <p className="kpi-helper kpi-helper-danger">Revisar precificação</p>
         </div>
       </div>
@@ -337,7 +323,19 @@ export default function Patio() {
           </div>
         ))}
 
-        {loading && <p className="patio-empty">Carregando…</p>}
+        {loading &&
+          Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="card vehicle-card" aria-hidden="true">
+              <Skeleton width="40%" height={12} />
+              <Skeleton width="70%" height={20} style={{ marginTop: 10 }} />
+              <Skeleton width="55%" height={12} style={{ marginTop: 8 }} />
+              <Skeleton height={150} radius={12} style={{ marginTop: 14 }} />
+              <div className="skeleton-stack" style={{ marginTop: 14 }}>
+                <Skeleton width="60%" height={14} />
+                <Skeleton width="45%" height={14} />
+              </div>
+            </div>
+          ))}
 
         {error && (
           <p className="patio-empty" role="alert">
