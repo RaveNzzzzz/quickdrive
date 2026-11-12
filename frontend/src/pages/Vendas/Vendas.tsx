@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { Download, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { api } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
 import { toast } from '../../utils/toast'
 import { KpiSkeleton, ChartSkeleton, TableSkeleton } from '../../components/Skeleton'
 import { Modal } from '../../components/Modal'
@@ -33,6 +34,7 @@ import { avisarVendasAlteradas } from '../../hooks/vendasAlteradas'
 import { formaPagamentoLabel } from './formasPagamento'
 import { metaFaturamento, metaVendasFechadas } from './metas'
 import { VendaFormModal } from './VendaFormModal'
+import { resumoComissao } from './comissao'
 import './Vendas.css'
 
 const PAGE_SIZE = 8
@@ -135,6 +137,10 @@ function Change({ value }: { value: number | null }) {
 }
 
 export default function Vendas() {
+  const { user } = useAuth()
+  // Comissão dos vendedores: só para quem gerencia (a lista de funcionários também é restrita a eles).
+  const verComissao = !!user?.pode_gerenciar
+  const [comissoes, setComissoes] = useState<Map<number, number>>(new Map())
   const [vendas, setVendas] = useState<Venda[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -168,6 +174,21 @@ export default function Vendas() {
       active = false
     }
   }, [attempt])
+
+  useEffect(() => {
+    if (!verComissao) return
+    let active = true
+    api<Paginated<{ id: number; comissao: string | number }>>('/funcionarios?limit=1000')
+      .then((data) => {
+        if (active) setComissoes(new Map(data.items.map((f) => [f.id, Number(f.comissao)])))
+      })
+      .catch(() => {
+        // Sem a lista, a coluna mostra "—"; o resto da tela segue normal.
+      })
+    return () => {
+      active = false
+    }
+  }, [verComissao])
 
   const sellers = useMemo(() => [...new Set(vendas.map((v) => v.seller))].sort(), [vendas])
   const faturamentoMensal = useMemo(() => monthlyRevenue(vendas), [vendas])
@@ -439,6 +460,7 @@ export default function Vendas() {
                 <th>Veículo</th>
                 <th>Vendedor</th>
                 <th>Valor</th>
+                {verComissao && <th>Comissão</th>}
                 <th>Status</th>
                 <th>Data</th>
                 <th>Ações</th>
@@ -462,6 +484,13 @@ export default function Vendas() {
                     </span>
                   </td>
                   <td className="vd-value">{currencyCents.format(venda.value)}</td>
+                  {verComissao && (
+                    <td className="vd-comissao-cell">
+                      {venda.status === 'Cancelada'
+                        ? '—'
+                        : resumoComissao(venda.value, comissoes.get(venda.raw.funcionario_id))}
+                    </td>
+                  )}
                   <td>
                     <span className={`vd-pill ${statusClass[venda.status]}`}>{venda.status}</span>
                   </td>
@@ -491,10 +520,10 @@ export default function Vendas() {
                   </td>
                 </tr>
               ))}
-              {loading && <TableSkeleton cols={7} />}
+              {loading && <TableSkeleton cols={verComissao ? 8 : 7} />}
               {!loading && pageItems.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="vd-empty">
+                  <td colSpan={verComissao ? 8 : 7} className="vd-empty">
                     {loading ? 'Carregando…' : 'Nenhuma venda encontrada para esses filtros.'}
                   </td>
                 </tr>

@@ -11,13 +11,18 @@ import {
 import { GripVertical, Pencil, Plus, Star, Undo2, X } from 'lucide-react'
 import { api, apiUrl } from '../../api/client'
 import { Modal } from '../../components/Modal'
+import { SearchableSelect } from '../../components/SearchableSelect'
 import type {
   ImagemVeiculoApi,
+  ModeloApi,
   OpcaoApi,
   SinistroVeiculoApi,
+  VagaApi,
   VeiculoApi,
   VeiculoPayload,
 } from '../../types'
+import { ModeloFormModal } from './ModeloFormModal'
+import { VagaFormModal } from './VagaFormModal'
 import { STATUS_OPTIONS } from './veiculoStatus'
 import { OpcaoFormModal } from './OpcaoFormModal'
 import { OPCAO_ROTULOS, type TipoOpcao } from './opcoes'
@@ -41,7 +46,7 @@ import './Veiculo.css'
 // Na hora de enviar, convertemos para número onde precisa.
 type FormValues = {
   marca_id: string
-  modelo: string
+  modelo_id: string
   versao: string
   cor: string
   placa: string
@@ -59,13 +64,15 @@ type FormValues = {
   quilometragem: string
   valor: string
   status: string
-  vaga: string
+  vaga_id: string
   custo_aquisicao: string
   observacoes: string
 }
 
 type Options = {
   marcas: OpcaoApi[]
+  modelos: ModeloApi[]
+  vagas: VagaApi[]
   cambios: OpcaoApi[]
   combustiveis: OpcaoApi[]
   carrocerias: OpcaoApi[]
@@ -97,7 +104,7 @@ const MAX_FOTOS = 12
 function toFormValues(v?: VeiculoApi): FormValues {
   return {
     marca_id: v ? String(v.marca_id) : '',
-    modelo: v?.modelo ?? '',
+    modelo_id: v?.modelo_id ? String(v.modelo_id) : '',
     versao: v?.versao ?? '',
     cor: v?.cor ?? '',
     placa: v?.placa ?? '',
@@ -115,7 +122,7 @@ function toFormValues(v?: VeiculoApi): FormValues {
     quilometragem: v ? String(v.quilometragem) : '0',
     valor: v ? numeroParaValor(v.valor) : '',
     status: v?.status ?? 'disponivel',
-    vaga: v?.vaga ?? '',
+    vaga_id: v?.vaga_id ? String(v.vaga_id) : '',
     custo_aquisicao: v ? numeroParaValor(v.custo_aquisicao) : '',
     observacoes: v?.observacoes ?? '',
   }
@@ -127,7 +134,7 @@ const limpar = (texto: string) => texto.trim().replace(/\s+/g, ' ')
 function toPayload(v: FormValues): VeiculoPayload {
   return {
     marca_id: Number(v.marca_id),
-    modelo: limpar(v.modelo),
+    modelo_id: Number(v.modelo_id),
     versao: limpar(v.versao),
     cor: limpar(v.cor),
     placa: placaDigitada(v.placa),
@@ -145,7 +152,7 @@ function toPayload(v: FormValues): VeiculoPayload {
     quilometragem: Number(v.quilometragem),
     valor: valorParaNumero(v.valor),
     status: v.status,
-    vaga: limpar(v.vaga),
+    vaga_id: v.vaga_id ? Number(v.vaga_id) : null,
     custo_aquisicao: valorParaNumero(v.custo_aquisicao),
     observacoes: v.observacoes.trim(),
   }
@@ -230,6 +237,9 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
     return atual ? { kind: 'existente', id: atual.id } : null
   })
   const [fotoError, setFotoError] = useState('')
+  // Pop-ups de criar/editar modelo e vaga (abrem por cima deste).
+  const [modeloAberto, setModeloAberto] = useState<{ modelo?: ModeloApi } | null>(null)
+  const [vagaAberta, setVagaAberta] = useState<{ vaga?: VagaApi } | null>(null)
 
   // Opcionais (texto livre, sem lista pré-cadastrada) e registro de sinistro do veículo.
   const opcionaisOriginais = (target?.opcionais ?? []).map((o) => o.nome)
@@ -325,12 +335,14 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
 
     Promise.all([
       api<OpcaoApi[]>('/veiculos/opcoes/marcas'),
+      api<ModeloApi[]>('/veiculos/opcoes/modelos'),
+      api<VagaApi[]>('/veiculos/opcoes/vagas'),
       api<OpcaoApi[]>('/veiculos/opcoes/cambios'),
       api<OpcaoApi[]>('/veiculos/opcoes/combustiveis'),
       api<OpcaoApi[]>('/veiculos/opcoes/carrocerias'),
     ])
-      .then(([marcas, cambios, combustiveis, carrocerias]) => {
-        if (active) setOptions({ marcas, cambios, combustiveis, carrocerias })
+      .then(([marcas, modelos, vagas, cambios, combustiveis, carrocerias]) => {
+        if (active) setOptions({ marcas, modelos, vagas, cambios, combustiveis, carrocerias })
       })
       .catch((err: Error) => {
         if (active) setLoadError(err.message)
@@ -428,18 +440,186 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
             </button>
           </div>
         </div>
-        <select {...bind(key)} required disabled={!options}>
-          <option value="" disabled>
-            {options ? 'Selecione' : 'Carregando…'}
-          </option>
-          {list.map((item) => (
-            <option key={item.id} value={String(item.id)}>
-              {item.nome}
+        {key === 'marca_id' ? (
+          <SearchableSelect
+            id={fid(key)}
+            value={values[key]}
+            onChange={escolherMarca}
+            options={list.map((item) => ({ value: String(item.id), label: item.nome }))}
+            placeholder={options ? 'Selecione' : 'Carregando…'}
+            disabled={!options || saving}
+          />
+        ) : (
+          <select {...bind(key)} required disabled={!options}>
+            <option value="" disabled>
+              {options ? 'Selecione' : 'Carregando…'}
             </option>
-          ))}
-        </select>
+            {list.map((item) => (
+              <option key={item.id} value={String(item.id)}>
+                {item.nome}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
     )
+  }
+
+  // Trocar a marca limpa o modelo escolhido se ele for de outra marca.
+  function escolherMarca(marcaId: string) {
+    setValues((prev) => {
+      const modelo = options?.modelos.find((m) => String(m.id) === prev.modelo_id)
+      const mantem = !modelo || String(modelo.marca_id) === marcaId
+      return { ...prev, marca_id: marcaId, modelo_id: mantem ? prev.modelo_id : '' }
+    })
+  }
+
+  // Escolher um modelo seleciona a marca dele automaticamente.
+  function escolherModelo(modeloId: string) {
+    const modelo = options?.modelos.find((m) => String(m.id) === modeloId)
+    setValues((prev) => ({
+      ...prev,
+      modelo_id: modeloId,
+      marca_id: modelo ? String(modelo.marca_id) : prev.marca_id,
+    }))
+  }
+
+  const labelComAcoes = (
+    htmlFor: string,
+    label: string,
+    singular: string,
+    artigo: 'o' | 'a',
+    selecionadaNome: string | null,
+    onCriar: () => void,
+    onEditar: () => void,
+  ) => (
+    <div className="vform-label-row">
+      <label htmlFor={htmlFor}>{label}</label>
+      <div className="vform-label-actions">
+        <button
+          type="button"
+          className="vform-icon-btn"
+          onClick={onCriar}
+          disabled={!options || saving}
+          aria-label={`Criar ${artigo === 'a' ? 'nova' : 'novo'} ${singular}`}
+          title={`Criar ${artigo === 'a' ? 'nova' : 'novo'} ${singular}`}
+        >
+          <Plus size={15} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="vform-icon-btn"
+          onClick={onEditar}
+          disabled={!selecionadaNome || saving}
+          aria-label={selecionadaNome ? `Editar ${singular} “${selecionadaNome}”` : `Selecione ${artigo} ${singular} para editar`}
+          title={selecionadaNome ? `Editar ${singular} “${selecionadaNome}”` : `Selecione ${artigo} ${singular} para editar`}
+        >
+          <Pencil size={14} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  )
+
+  const modeloField = () => {
+    const todos = options?.modelos ?? []
+    const daMarca = values.marca_id ? todos.filter((m) => String(m.marca_id) === values.marca_id) : todos
+    const selecionado = todos.find((m) => String(m.id) === values.modelo_id)
+    const nomeMarca = (id: number) => options?.marcas.find((m) => m.id === id)?.nome
+    return (
+      <div className="vform-field">
+        {labelComAcoes(
+          fid('modelo_id'),
+          'Modelo',
+          'modelo',
+          'o',
+          selecionado?.nome ?? null,
+          () => setModeloAberto({}),
+          () => selecionado && setModeloAberto({ modelo: selecionado }),
+        )}
+        <SearchableSelect
+          id={fid('modelo_id')}
+          value={values.modelo_id}
+          onChange={escolherModelo}
+          options={daMarca.map((m) => ({
+            value: String(m.id),
+            label: m.nome,
+            // Sem marca escolhida, mostra de qual marca é cada modelo.
+            hint: values.marca_id ? undefined : nomeMarca(m.marca_id),
+          }))}
+          placeholder={options ? 'Selecione' : 'Carregando…'}
+          disabled={!options || saving}
+          emptyText={values.marca_id ? 'Nenhum modelo desta marca. Use o + para cadastrar.' : 'Nenhum modelo cadastrado.'}
+        />
+      </div>
+    )
+  }
+
+  const vagaField = () => {
+    const todas = options?.vagas ?? []
+    const selecionada = todas.find((v) => String(v.id) === values.vaga_id)
+    return (
+      <div className="vform-field">
+        {labelComAcoes(
+          fid('vaga_id'),
+          'Vaga (opcional)',
+          'vaga',
+          'a',
+          selecionada?.nome ?? null,
+          () => setVagaAberta({}),
+          () => selecionada && setVagaAberta({ vaga: selecionada }),
+        )}
+        <SearchableSelect
+          id={fid('vaga_id')}
+          value={values.vaga_id}
+          onChange={(v) => update('vaga_id', v)}
+          options={[
+            { value: '', label: 'Sem vaga' },
+            ...todas.map((v) => {
+              // Ocupada por outro veículo = não dá para escolher (a do próprio veículo continua livre para ele).
+              const ocupada = v.ocupada_por_id !== null && v.ocupada_por_id !== target?.id
+              return {
+                value: String(v.id),
+                label: v.nome,
+                hint: ocupada ? `ocupada · ${v.ocupada_por}` : v.posicao || undefined,
+                disabled: ocupada,
+              }
+            }),
+          ]}
+          placeholder={options ? 'Sem vaga' : 'Carregando…'}
+          disabled={!options || saving}
+        />
+      </div>
+    )
+  }
+
+  function handleModeloSalvo(modelo: ModeloApi) {
+    setOptions((prev) =>
+      prev
+        ? {
+            ...prev,
+            modelos: [...prev.modelos.filter((m) => m.id !== modelo.id), modelo].sort((a, b) =>
+              a.nome.localeCompare(b.nome, 'pt-BR'),
+            ),
+          }
+        : prev,
+    )
+    setValues((prev) => ({ ...prev, modelo_id: String(modelo.id), marca_id: String(modelo.marca_id) }))
+    setModeloAberto(null)
+  }
+
+  function handleVagaSalva(vaga: VagaApi) {
+    setOptions((prev) =>
+      prev
+        ? {
+            ...prev,
+            vagas: [...prev.vagas.filter((v) => v.id !== vaga.id), vaga].sort((a, b) =>
+              a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true }),
+            ),
+          }
+        : prev,
+    )
+    update('vaga_id', String(vaga.id))
+    setVagaAberta(null)
   }
 
   // Depois de criar/editar: atualiza a lista (em ordem alfabética) e já deixa a opção selecionada.
@@ -470,7 +650,6 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
 
     const payload = toPayload(values)
     const requiredTexts = [
-      payload.modelo,
       payload.versao,
       payload.cor,
       payload.placa,
@@ -480,6 +659,16 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
     ]
     if (requiredTexts.some((text) => text === '')) {
       setError('Preencha todos os campos obrigatórios.')
+      return
+    }
+    if (!values.marca_id) {
+      setError('Escolha a marca.')
+      document.getElementById(fid('marca_id'))?.focus()
+      return
+    }
+    if (!values.modelo_id) {
+      setError('Escolha o modelo (ou cadastre um novo com o botão +).')
+      document.getElementById(fid('modelo_id'))?.focus()
       return
     }
     const problema = validar(values, payload)
@@ -619,7 +808,7 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
       }
     >
       <form id={formId} className="vform" onSubmit={handleSubmit}>
-        <p className="vform-hint">Todos os campos são obrigatórios, exceto a vaga.</p>
+        <p className="vform-hint">Todos os campos são obrigatórios, exceto os marcados como opcionais.</p>
 
         {loadError && (
           <p className="vform-error" role="alert">
@@ -729,7 +918,7 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
           <legend>Identificação</legend>
           <div className="vform-grid">
             {selectField('marca_id', 'marcas', 'Marca')}
-            {field('modelo', 'Modelo', <input {...bind('modelo')} maxLength={LIMITES.modelo} required />)}
+            {modeloField()}
             {field('versao', 'Versão', <input {...bind('versao')} maxLength={LIMITES.versao} required />)}
             {field('cor', 'Cor', <input {...bind('cor')} maxLength={LIMITES.cor} required />)}
           </div>
@@ -869,7 +1058,7 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
                 ))}
               </select>,
             )}
-            {field('vaga', 'Vaga (opcional)', <input {...bind('vaga')} maxLength={LIMITES.vaga} />)}
+            {vagaField()}
             {field(
               'custo_aquisicao',
               'Custo de aquisição (R$)',
@@ -975,6 +1164,20 @@ export function VeiculoFormModal({ mode, veiculo, onClose, onSaved }: Props) {
           </div>
         </fieldset>
       </form>
+
+      {modeloAberto && options && (
+        <ModeloFormModal
+          marcas={options.marcas}
+          marcaInicialId={values.marca_id}
+          modelo={modeloAberto.modelo}
+          onClose={() => setModeloAberto(null)}
+          onSaved={handleModeloSalvo}
+        />
+      )}
+
+      {vagaAberta && (
+        <VagaFormModal vaga={vagaAberta.vaga} onClose={() => setVagaAberta(null)} onSaved={handleVagaSalva} />
+      )}
 
       {opcaoAberta && (
         <OpcaoFormModal

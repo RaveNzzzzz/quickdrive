@@ -152,7 +152,11 @@ export default function VeiculoFicha() {
     try {
       await api<null>(`/veiculos/${veiculo.id}/custos-preparacao/${id}`, { method: 'DELETE' })
       setVeiculo({ ...veiculo, custos_preparacao: veiculo.custos_preparacao.filter((c) => c.id !== id) })
-      toast.success('Custo removido com sucesso!')
+      toast.success(
+        veiculo.custos_preparacao.find((c) => c.id === id)?.produtos.length
+          ? 'Procedimento removido. Os produtos voltaram ao estoque.'
+          : 'Procedimento removido com sucesso!',
+      )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível remover o custo.')
     }
@@ -196,7 +200,9 @@ export default function VeiculoFicha() {
             <Item label="Carroceria">{veiculo.carroceria}</Item>
             <Item label="Chassi">{veiculo.chassi}</Item>
             <Item label="RENAVAM">{veiculo.renavam}</Item>
-            <Item label="Vaga">{veiculo.vaga || '—'}</Item>
+            <Item label="Vaga">
+              {veiculo.vaga ? (veiculo.vaga_posicao ? `${veiculo.vaga} · ${veiculo.vaga_posicao}` : veiculo.vaga) : '—'}
+            </Item>
           </dl>
         </section>
 
@@ -308,7 +314,7 @@ export default function VeiculoFicha() {
             <span className="ficha-total">Total {currency.format(totalCustos)}</span>
           </div>
           {veiculo.custos_preparacao.length === 0 ? (
-            <p className="ficha-vazio">Nenhum custo registrado.</p>
+            <p className="ficha-vazio">Nenhum procedimento registrado.</p>
           ) : (
             <ul className="ficha-custos">
               {veiculo.custos_preparacao.map((c) => (
@@ -320,17 +326,31 @@ export default function VeiculoFicha() {
                     type="button"
                     className="ficha-custo-remover"
                     onClick={() => void removerCusto(c.id)}
-                    aria-label={`Remover custo ${c.nome}`}
+                    aria-label={`Remover procedimento ${c.nome}`}
                   >
                     <Trash2 size={14} />
                   </button>
+                  {c.produtos.length > 0 && (
+                    <div className="ficha-custo-produtos">
+                      {c.produtos.map((p) => (
+                        <span key={p.produto_id} className="ficha-custo-chip">
+                          {p.nome} × {p.quantidade} · {currency.format(p.valor_total)}
+                        </span>
+                      ))}
+                      {c.custo_servico > 0 && (
+                        <span className="ficha-custo-chip ficha-custo-chip-servico">
+                          Serviço · {currency.format(c.custo_servico)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
           )}
           <button type="button" className="btn btn-outline ficha-add" onClick={() => setAddingCusto(true)}>
             <Plus size={16} />
-            Adicionar custo
+            Adicionar procedimento
           </button>
         </section>
 
@@ -382,7 +402,11 @@ export default function VeiculoFicha() {
               ),
             })
             setAddingCusto(false)
-            toast.success('Custo adicionado com sucesso!')
+            toast.success(
+              custo.produtos.length
+                ? 'Procedimento adicionado. Os produtos saíram do estoque.'
+                : 'Procedimento adicionado com sucesso!',
+            )
           }}
         />
       )}

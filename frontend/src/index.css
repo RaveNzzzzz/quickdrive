@@ -132,3 +132,9 @@ button {
 :root[data-theme='contrast'] body {
   font-weight: 500;
 }
+
+/* Campos de formulário: fundo do tema (sem o cinza padrão do navegador, principalmente no tema escuro). */
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea) {
+  background-color: var(--surface);
+  color: var(--text-h);
+}

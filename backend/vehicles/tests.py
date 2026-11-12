@@ -1,11 +1,12 @@
 import json
 from datetime import date
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
-from ninja_jwt.tokens import RefreshToken
 
-from .models import Cambio, Carroceria, Combustivel, Marca
+from stock.models import CategoriaProduto, Lote, MovimentacaoEstoque
+from stock.tests import criar_funcionario_e_login
+
+from .models import Cambio, Carroceria, Combustivel, Marca, Modelo, Vaga
 
 
 def _renavam_valido(base10: str) -> str:
@@ -17,9 +18,10 @@ def _renavam_valido(base10: str) -> str:
 
 class FichaVeiculoTests(TestCase):
     def setUp(self):
-        admin = get_user_model().objects.create_superuser("admin", "admin@example.com", "Senha!2026")
-        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {RefreshToken.for_user(admin).access_token}"
+        criar_funcionario_e_login(self.client)
         ano = date.today().year - 1
+        self.marca = Marca.objects.create(nome="Subaru")
+        self.modelo = Modelo.objects.create(nome="Impreza WRX", marca=self.marca)
         self.payload = {
             "ano_modelo": ano,
             "ano_fabricacao": f"{ano}-03-10",
@@ -33,9 +35,9 @@ class FichaVeiculoTests(TestCase):
             "motorizacao": "2.0 turbo",
             "renavam": _renavam_valido("1234567890"),
             "valor": "130000.00",
-            "modelo": "Impreza WRX",
+            "modelo_id": self.modelo.id,
             "placa": "QDA1101",
-            "marca_id": Marca.objects.create(nome="Subaru").id,
+            "marca_id": self.marca.id,
             "cambio_id": Cambio.objects.create(nome="Manual").id,
             "combustivel_id": Combustivel.objects.create(nome="Gasolina").id,
             "carroceria_id": Carroceria.objects.create(nome="Sedan").id,
@@ -131,3 +133,171 @@ class FichaVeiculoTests(TestCase):
         itens = self.client.get("/api/veiculos").json()["items"]
         self.assertEqual(itens[0]["historico"], [])
         self.assertEqual(itens[0]["opcionais"], [])
+
+    # --- Procedimentos com produtos do estoque ---
+
+    def criar_produto_com_lote(self, quantidade=10, valor="12.50"):
+        categoria = CategoriaProduto.objects.create(nome="Polimento")
+        resposta = self.send(
+            "post",
+            "/api/estoque/produtos",
+            {"nome": "Cera", "categoria_id": categoria.id, "valor_unitario": valor, "lote": {"quantidade": quantidade}},
+        )
+        self.assertEqual(resposta.status_code, 201, resposta.content)
+        return resposta.json()
+
+    def test_procedimento_baixa_estoque_e_soma_produtos_ao_custo(self):
+        veiculo = self.criar_veiculo()
+        produto = self.criar_produto_com_lote(quantidade=10, valor="12.50")
+        url = f"/api/veiculos/{veiculo['id']}/custos-preparacao"
+        resposta = self.send(
+            "post",
+            url,
+            {
+                "nome": "Polimento",
+                "custo": "200.00",
+                "data": "2026-08-05",
+                "produtos": [{"produto_id": produto["id"], "quantidade": 3}],
+            },
+        )
+        self.assertEqual(resposta.status_code, 201, resposta.content)
+        custo = resposta.json()
+        self.assertEqual(custo["custo"], 237.5)  # 200 de serviço + 3 x 12,50
+        self.assertEqual(custo["custo_servico"], 200.0)
+        self.assertEqual(custo["produtos"][0]["quantidade"], 3)
+        self.assertEqual(custo["produtos"][0]["valor_total"], 37.5)
+        self.assertEqual(Lote.objects.get().quantidade, 7)
+        ficha = self.client.get(f"/api/veiculos/{veiculo['id']}").json()
+        self.assertEqual(ficha["custos_preparacao"][0]["produtos"][0]["nome"], "Cera")
+
+    def test_valor_unitario_do_produto_pode_ser_alterado_no_procedimento(self):
+        veiculo = self.criar_veiculo()
+        produto = self.criar_produto_com_lote(valor="12.50")
+        resposta = self.send(
+            "post",
+            f"/api/veiculos/{veiculo['id']}/custos-preparacao",
+            {"nome": "Lavagem", "custo": "0", "data": "2026-08-05",
+             "produtos": [{"produto_id": produto["id"], "quantidade": 2, "valor_unitario": "20.00"}]},
+        )
+        self.assertEqual(resposta.status_code, 201, resposta.content)
+        self.assertEqual(resposta.json()["custo"], 40.0)
+
+    def test_estoque_insuficiente_recusa_e_nao_cria_o_procedimento(self):
+        veiculo = self.criar_veiculo()
+        produto = self.criar_produto_com_lote(quantidade=2)
+        resposta = self.send(
+            "post",
+            f"/api/veiculos/{veiculo['id']}/custos-preparacao",
+            {"nome": "Polimento", "custo": "100", "data": "2026-08-05",
+             "produtos": [{"produto_id": produto["id"], "quantidade": 5}]},
+        )
+        self.assertEqual(resposta.status_code, 409, resposta.content)
+        self.assertEqual(Lote.objects.get().quantidade, 2)
+        self.assertEqual(self.client.get(f"/api/veiculos/{veiculo['id']}").json()["custos_preparacao"], [])
+
+    def test_excluir_procedimento_devolve_os_produtos_ao_estoque(self):
+        veiculo = self.criar_veiculo()
+        produto = self.criar_produto_com_lote(quantidade=10)
+        criado = self.send(
+            "post",
+            f"/api/veiculos/{veiculo['id']}/custos-preparacao",
+            {"nome": "Polimento", "custo": "100", "data": "2026-08-05",
+             "produtos": [{"produto_id": produto["id"], "quantidade": 4}]},
+        ).json()
+        self.assertEqual(Lote.objects.get().quantidade, 6)
+        resposta = self.client.delete(f"/api/veiculos/{veiculo['id']}/custos-preparacao/{criado['id']}")
+        self.assertEqual(resposta.status_code, 204)
+        self.assertEqual(Lote.objects.get().quantidade, 10)
+        self.assertEqual(MovimentacaoEstoque.objects.filter(tipo="entrada").count(), 2)  # lote inicial + devolução
+
+    # --- Modelos e vagas cadastrados ---
+
+    def test_veiculo_usa_o_modelo_cadastrado_e_guarda_o_nome(self):
+        veiculo = self.criar_veiculo()
+        self.assertEqual(veiculo["modelo"], "Impreza WRX")
+        self.assertEqual(veiculo["modelo_id"], self.modelo.id)
+
+    def test_modelo_de_outra_marca_e_recusado(self):
+        outra = Marca.objects.create(nome="Fiat")
+        modelo_fiat = Modelo.objects.create(nome="Uno", marca=outra)
+        resposta = self.send("post", "/api/veiculos", {**self.payload, "modelo_id": modelo_fiat.id})
+        self.assertEqual(resposta.status_code, 422, resposta.content)
+
+    def test_trocar_a_marca_exige_um_modelo_da_nova_marca(self):
+        veiculo = self.criar_veiculo()
+        outra = Marca.objects.create(nome="Fiat")
+        invalido = self.send("patch", f"/api/veiculos/{veiculo['id']}", {"marca_id": outra.id})
+        self.assertEqual(invalido.status_code, 422, invalido.content)
+        uno = Modelo.objects.create(nome="Uno", marca=outra)
+        valido = self.send("patch", f"/api/veiculos/{veiculo['id']}", {"marca_id": outra.id, "modelo_id": uno.id})
+        self.assertEqual(valido.status_code, 200, valido.content)
+        self.assertEqual(valido.json()["modelo"], "Uno")
+
+    def test_crud_de_modelos_filtra_por_marca_e_propaga_o_nome(self):
+        veiculo = self.criar_veiculo()
+        outra = Marca.objects.create(nome="Fiat")
+        self.send("post", "/api/veiculos/opcoes/modelos", {"nome": "Uno", "marca_id": outra.id})
+        repetido = self.send("post", "/api/veiculos/opcoes/modelos", {"nome": "uno", "marca_id": outra.id})
+        self.assertEqual(repetido.status_code, 409)
+        so_subaru = self.client.get(f"/api/veiculos/opcoes/modelos?marca_id={self.marca.id}").json()
+        self.assertEqual([m["nome"] for m in so_subaru], ["Impreza WRX"])
+        renomeado = self.send("patch", f"/api/veiculos/opcoes/modelos/{self.modelo.id}", {"nome": "WRX STI"})
+        self.assertEqual(renomeado.status_code, 200, renomeado.content)
+        self.assertEqual(self.client.get(f"/api/veiculos/{veiculo['id']}").json()["modelo"], "WRX STI")
+        em_uso = self.client.delete(f"/api/veiculos/opcoes/modelos/{self.modelo.id}")
+        self.assertEqual(em_uso.status_code, 409)
+        self.assertEqual(self.client.delete(f"/api/veiculos/opcoes/marcas/{self.marca.id}").status_code, 409)
+
+    def test_vaga_com_posicao_e_propagacao_do_nome(self):
+        vaga = self.send("post", "/api/veiculos/opcoes/vagas", {"nome": "A-01", "posicao": "Frente da loja"})
+        self.assertEqual(vaga.status_code, 201, vaga.content)
+        self.assertEqual(self.send("post", "/api/veiculos/opcoes/vagas", {"nome": "a-01"}).status_code, 409)
+        veiculo = self.send("post", "/api/veiculos", {**self.payload, "vaga_id": vaga.json()["id"]}).json()
+        self.assertEqual(veiculo["vaga"], "A-01")
+        self.assertEqual(veiculo["vaga_posicao"], "Frente da loja")
+        self.send("patch", f"/api/veiculos/opcoes/vagas/{vaga.json()['id']}", {"nome": "A-02", "posicao": "Destaque"})
+        atualizado = self.client.get(f"/api/veiculos/{veiculo['id']}").json()
+        self.assertEqual((atualizado["vaga"], atualizado["vaga_posicao"]), ("A-02", "Destaque"))
+        self.assertEqual(self.client.delete(f"/api/veiculos/opcoes/vagas/{vaga.json()['id']}").status_code, 409)
+        sem_vaga = self.send("patch", f"/api/veiculos/{veiculo['id']}", {"vaga_id": None})
+        self.assertEqual(sem_vaga.json()["vaga"], "")
+        self.assertEqual(Vaga.objects.count(), 1)
+
+    def test_vaga_nao_pode_ser_ocupada_por_dois_veiculos(self):
+        vaga = self.send("post", "/api/veiculos/opcoes/vagas", {"nome": "A-01", "posicao": "Destaque"}).json()
+        primeiro = self.send("post", "/api/veiculos", {**self.payload, "vaga_id": vaga["id"]})
+        self.assertEqual(primeiro.status_code, 201, primeiro.content)
+
+        segundo_payload = {**self.payload, "chassi": "9BWZZZ377VT004252", "placa": "QDA1102",
+                           "renavam": _renavam_valido("1234567891"), "vaga_id": vaga["id"]}
+        recusado = self.send("post", "/api/veiculos", segundo_payload)
+        self.assertEqual(recusado.status_code, 409, recusado.content)
+        self.assertIn("A-01", recusado.json()["detail"])
+
+        # Sem vaga é permitido (a vaga é opcional).
+        sem_vaga = self.send("post", "/api/veiculos", {**segundo_payload, "vaga_id": None})
+        self.assertEqual(sem_vaga.status_code, 201, sem_vaga.content)
+        outro = sem_vaga.json()
+
+        # Mover o segundo para a vaga ocupada também é recusado; o primeiro pode regravar a própria vaga.
+        self.assertEqual(self.send("patch", f"/api/veiculos/{outro['id']}", {"vaga_id": vaga["id"]}).status_code, 409)
+        regravar = self.send("patch", f"/api/veiculos/{primeiro.json()['id']}", {"vaga_id": vaga["id"], "cor": "Preto"})
+        self.assertEqual(regravar.status_code, 200, regravar.content)
+
+        # A listagem de vagas mostra quem ocupa.
+        lista = self.client.get("/api/veiculos/opcoes/vagas").json()
+        self.assertEqual(lista[0]["ocupada_por_id"], primeiro.json()["id"])
+        self.assertIn("QDA1101", lista[0]["ocupada_por"])
+
+    def test_vaga_de_veiculo_vendido_fica_livre(self):
+        vaga = self.send("post", "/api/veiculos/opcoes/vagas", {"nome": "B-01"}).json()
+        primeiro = self.send("post", "/api/veiculos", {**self.payload, "vaga_id": vaga["id"]}).json()
+        self.send("patch", f"/api/veiculos/{primeiro['id']}", {"status": "vendido"})
+        self.assertIsNone(self.client.get("/api/veiculos/opcoes/vagas").json()[0]["ocupada_por_id"])
+
+        segundo = {**self.payload, "chassi": "9BWZZZ377VT004252", "placa": "QDA1102",
+                   "renavam": _renavam_valido("1234567891"), "vaga_id": vaga["id"]}
+        self.assertEqual(self.send("post", "/api/veiculos", segundo).status_code, 201)
+        # O vendido não volta para o pátio na vaga que já foi ocupada por outro.
+        voltar = self.send("patch", f"/api/veiculos/{primeiro['id']}", {"status": "disponivel"})
+        self.assertEqual(voltar.status_code, 409, voltar.content)

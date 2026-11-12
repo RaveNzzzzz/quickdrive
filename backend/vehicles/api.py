@@ -1,8 +1,10 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from io import BytesIO
 
 from django.db import transaction
 from django.db.models import Max, Prefetch
+from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import File, Query, Router, UploadedFile
@@ -11,6 +13,8 @@ from ninja.pagination import paginate
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from accounts.authentication import JWTAuth
+from stock import services as estoque
+from stock.models import Produto
 
 from .enums import StatusRevisao, StatusVeiculo
 from .models import (
@@ -21,10 +25,13 @@ from .models import (
     HistoricoVeiculo,
     Imagem,
     Marca,
+    Modelo,
     OpcionalVeiculo,
     Preparacao,
+    ProdutoUtilizado,
     Revisao,
     SinistroVeiculo,
+    Vaga,
     Veiculo,
 )
 from .schemas import (
@@ -43,12 +50,18 @@ from .schemas import (
     ImagensOrdemIn,
     MarcaIn,
     MarcaOut,
+    ModeloIn,
+    ModeloOut,
+    ModeloUpdate,
     OpcionaisIn,
     OpcionalOut,
     PreparacaoIn,
     PreparacaoOut,
     SinistroIn,
     SinistroOut,
+    VagaIn,
+    VagaOut,
+    VagaUpdate,
     VeiculoIn,
     VeiculoOut,
     VeiculoUpdate,
@@ -81,6 +94,66 @@ def _checar_nome_opcao(modelo, nome: str, ignorar_id: int | None = None):
         existe = existe.exclude(id=ignorar_id)
     if existe.exists():
         raise HttpError(409, f'Já existe "{existe.first().nome}" cadastrado.')
+
+
+def _resolver_modelo_e_vaga(dados: dict, veiculo: Veiculo | None = None):
+    """Troca modelo_id/vaga_id pelos objetos do cadastro e mantém os textos `modelo`/`vaga` em dia.
+
+    Confere também que o modelo pertence à marca escolhida.
+    """
+    marca_id = dados.get("marca_id", veiculo.marca_id if veiculo else None)
+
+    if "modelo_id" in dados:
+        modelo = get_object_or_404(Modelo.objects.select_related("marca"), id=dados.pop("modelo_id"))
+        dados["modelo_cadastro"] = modelo
+        dados["modelo"] = modelo.nome
+    elif veiculo is not None and "marca_id" in dados and veiculo.modelo_cadastro_id:
+        modelo = veiculo.modelo_cadastro
+    else:
+        modelo = None
+    if modelo is not None and marca_id is not None and modelo.marca_id != marca_id:
+        marca = Marca.objects.filter(id=marca_id).first()
+        raise HttpError(422, f'O modelo "{modelo.nome}" não pertence à marca {marca.nome if marca else ""}.'.strip())
+
+    if "vaga_id" in dados:
+        vaga_id = dados.pop("vaga_id")
+        vaga = get_object_or_404(Vaga, id=vaga_id) if vaga_id is not None else None
+        dados["vaga_cadastro"] = vaga
+        dados["vaga"] = vaga.nome if vaga else ""
+
+    _checar_vaga_livre(dados, veiculo)
+
+
+def _checar_vaga_livre(dados: dict, veiculo: Veiculo | None):
+    """Uma vaga só pode ter um veículo (os vendidos já saíram do pátio e não contam).
+
+    Só confere quando a vaga muda, ou quando um veículo vendido volta para o pátio.
+    Assim, dados antigos que já dividiam uma vaga não travam edições sem relação.
+    """
+    status = dados.get("status", veiculo.status if veiculo else StatusVeiculo.DISPONIVEL)
+    if status == StatusVeiculo.VENDIDO:
+        return
+    vaga = dados["vaga_cadastro"] if "vaga_cadastro" in dados else (veiculo.vaga_cadastro if veiculo else None)
+    if vaga is None:
+        return
+
+    mudou_vaga = veiculo is None or vaga.id != veiculo.vaga_cadastro_id
+    voltou_ao_patio = veiculo is not None and veiculo.status == StatusVeiculo.VENDIDO
+    if not (mudou_vaga or voltou_ao_patio):
+        return
+
+    ocupante = (
+        Veiculo.objects.filter(vaga_cadastro=vaga)
+        .exclude(status=StatusVeiculo.VENDIDO)
+        .exclude(id=veiculo.id if veiculo else None)
+        .select_related("marca")
+        .first()
+    )
+    if ocupante:
+        raise HttpError(
+            409,
+            f"A vaga {vaga.nome} já está ocupada por {ocupante.marca.nome} {ocupante.modelo} ({ocupante.placa}).",
+        )
 
 
 def _checar_anos(ano_modelo: int, ano_fabricacao):
@@ -123,6 +196,7 @@ def create_veiculo(request, payload: VeiculoIn):
     dados = payload.dict()
     _checar_anos(dados["ano_modelo"], dados["ano_fabricacao"])
     _checar_unicos(dados)
+    _resolver_modelo_e_vaga(dados)
     veiculo = Veiculo.objects.create(**dados)
     HistoricoVeiculo.objects.create(veiculo=veiculo, titulo="Entrada no pátio")
     return 201, veiculo
@@ -142,6 +216,7 @@ def update_veiculo(request, veiculo_id: int, payload: VeiculoUpdate):
         dados.get("ano_fabricacao", veiculo.ano_fabricacao),
     )
     _checar_unicos(dados, ignorar_id=veiculo.id)
+    _resolver_modelo_e_vaga(dados, veiculo)
     status_anterior = veiculo.status
     for campo, valor in dados.items():
         setattr(veiculo, campo, valor)
@@ -212,13 +287,45 @@ def remover_documento(request, veiculo_id: int, documento_id: int):
 
 @router.post("/{int:veiculo_id}/custos-preparacao", response={201: PreparacaoOut})
 def criar_custo_preparacao(request, veiculo_id: int, payload: PreparacaoIn):
+    """Registra um procedimento no veículo. Os produtos informados saem do estoque (lotes que vencem primeiro)."""
     veiculo = get_object_or_404(Veiculo, id=veiculo_id)
-    return 201, Preparacao.objects.create(veiculo=veiculo, **payload.dict())
+    dados = payload.dict(exclude={"produtos"})
+    funcionario_id = request.user.funcionario_id
+
+    with transaction.atomic():
+        preparacao = Preparacao.objects.create(veiculo=veiculo, **{**dados, "custo": 0})
+        total_produtos = Decimal("0")
+        for item in payload.produtos:
+            produto = get_object_or_404(Produto.objects.select_for_update(), id=item.produto_id)
+            valor_unitario = item.valor_unitario if item.valor_unitario is not None else (produto.valor_unitario or Decimal("0"))
+            motivo = f'Procedimento "{preparacao.nome}" — {veiculo.marca} {veiculo.modelo} ({veiculo.placa})'
+            for lote, retirado in estoque.saida(produto, item.quantidade, funcionario_id, motivo):
+                ProdutoUtilizado.objects.create(
+                    preparacao=preparacao, produto=produto, lote=lote, quantidade=retirado, valor_unitario=valor_unitario
+                )
+            total_produtos += valor_unitario * item.quantidade
+
+        total = dados["custo"] + total_produtos
+        if total > Decimal("99999999.99"):
+            raise HttpError(422, "O custo total do procedimento excede o limite permitido.")
+        preparacao.custo = total
+        preparacao.save(update_fields=["custo"])
+    return 201, preparacao
 
 
 @router.delete("/{int:veiculo_id}/custos-preparacao/{int:custo_id}", response={204: None})
 def remover_custo_preparacao(request, veiculo_id: int, custo_id: int):
-    get_object_or_404(Preparacao, id=custo_id, veiculo_id=veiculo_id).delete()
+    """Exclui o procedimento e devolve ao estoque os produtos que ele tinha usado."""
+    preparacao = get_object_or_404(Preparacao, id=custo_id, veiculo_id=veiculo_id)
+    with transaction.atomic():
+        for uso in preparacao.produtos_utilizados.select_related("lote", "produto"):
+            estoque.devolver(
+                uso.lote,
+                uso.quantidade,
+                request.user.funcionario_id,
+                f'Procedimento "{preparacao.nome}" excluído',
+            )
+        preparacao.delete()
     return 204, None
 
 
@@ -458,7 +565,122 @@ def update_marca(request, marca_id: int, payload: MarcaIn):
 @router.delete("/opcoes/marcas/{int:marca_id}", response={204: None})
 def delete_marca(request, marca_id: int):
     marca = get_object_or_404(Marca, id=marca_id)
-    marca.delete()
+    try:
+        marca.delete()
+    except ProtectedError:
+        raise HttpError(409, "Não é possível excluir uma marca que tem modelos ou veículos cadastrados.")
+    return 204, None
+
+
+# --- Modelos (de uma marca) ---
+
+
+def _checar_modelo_unico(marca_id: int, nome: str, ignorar_id: int | None = None):
+    existe = Modelo.objects.filter(marca_id=marca_id, nome__iexact=nome)
+    if ignorar_id is not None:
+        existe = existe.exclude(id=ignorar_id)
+    if existe.exists():
+        raise HttpError(409, f'Já existe o modelo "{existe.first().nome}" nesta marca.')
+
+
+@router.get("/opcoes/modelos", response=list[ModeloOut])
+def list_modelos(request, marca_id: int | None = None):
+    qs = Modelo.objects.all()
+    if marca_id is not None:
+        qs = qs.filter(marca_id=marca_id)
+    return qs
+
+
+@router.post("/opcoes/modelos", response={201: ModeloOut})
+def create_modelo(request, payload: ModeloIn):
+    get_object_or_404(Marca, id=payload.marca_id)
+    _checar_modelo_unico(payload.marca_id, payload.nome)
+    return 201, Modelo.objects.create(nome=payload.nome, marca_id=payload.marca_id)
+
+
+@router.patch("/opcoes/modelos/{int:modelo_id}", response=ModeloOut)
+@transaction.atomic
+def update_modelo(request, modelo_id: int, payload: ModeloUpdate):
+    modelo = get_object_or_404(Modelo, id=modelo_id)
+    dados = payload.dict(exclude_unset=True)
+    nome = dados.get("nome", modelo.nome)
+    marca_id = dados.get("marca_id", modelo.marca_id)
+    if marca_id != modelo.marca_id:
+        get_object_or_404(Marca, id=marca_id)
+        if modelo.veiculos.exists():
+            raise HttpError(409, "Não é possível trocar a marca de um modelo que já tem veículos cadastrados.")
+    _checar_modelo_unico(marca_id, nome, ignorar_id=modelo.id)
+    modelo.nome, modelo.marca_id = nome, marca_id
+    modelo.save()
+    # O texto do modelo nos veículos acompanha o cadastro.
+    Veiculo.objects.filter(modelo_cadastro=modelo).update(modelo=nome)
+    return modelo
+
+
+@router.delete("/opcoes/modelos/{int:modelo_id}", response={204: None})
+def delete_modelo(request, modelo_id: int):
+    modelo = get_object_or_404(Modelo, id=modelo_id)
+    try:
+        modelo.delete()
+    except ProtectedError:
+        raise HttpError(409, "Não é possível excluir um modelo que tem veículos cadastrados.")
+    return 204, None
+
+
+# --- Vagas do pátio ---
+
+
+def _checar_vaga_unica(nome: str, ignorar_id: int | None = None):
+    existe = Vaga.objects.filter(nome__iexact=nome)
+    if ignorar_id is not None:
+        existe = existe.exclude(id=ignorar_id)
+    if existe.exists():
+        raise HttpError(409, f'Já existe a vaga "{existe.first().nome}".')
+
+
+@router.get("/opcoes/vagas", response=list[VagaOut])
+def list_vagas(request):
+    vagas = list(Vaga.objects.all())
+    ocupantes = {}
+    for veiculo in (
+        Veiculo.objects.filter(vaga_cadastro__isnull=False)
+        .exclude(status=StatusVeiculo.VENDIDO)
+        .select_related("marca")
+        .order_by("id")
+    ):
+        ocupantes.setdefault(veiculo.vaga_cadastro_id, veiculo)
+    for vaga in vagas:
+        vaga.ocupante = ocupantes.get(vaga.id)
+    return vagas
+
+
+@router.post("/opcoes/vagas", response={201: VagaOut})
+def create_vaga(request, payload: VagaIn):
+    _checar_vaga_unica(payload.nome)
+    return 201, Vaga.objects.create(**payload.dict())
+
+
+@router.patch("/opcoes/vagas/{int:vaga_id}", response=VagaOut)
+@transaction.atomic
+def update_vaga(request, vaga_id: int, payload: VagaUpdate):
+    vaga = get_object_or_404(Vaga, id=vaga_id)
+    dados = payload.dict(exclude_unset=True)
+    if "nome" in dados:
+        _checar_vaga_unica(dados["nome"], ignorar_id=vaga.id)
+    for campo, valor in dados.items():
+        setattr(vaga, campo, valor)
+    vaga.save()
+    Veiculo.objects.filter(vaga_cadastro=vaga).update(vaga=vaga.nome)
+    return vaga
+
+
+@router.delete("/opcoes/vagas/{int:vaga_id}", response={204: None})
+def delete_vaga(request, vaga_id: int):
+    vaga = get_object_or_404(Vaga, id=vaga_id)
+    try:
+        vaga.delete()
+    except ProtectedError:
+        raise HttpError(409, "Não é possível excluir uma vaga que tem veículo cadastrado.")
     return 204, None
 
 

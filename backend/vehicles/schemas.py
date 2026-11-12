@@ -307,11 +307,36 @@ class DocumentoOut(Schema):
     regular: bool
 
 
+class ProdutoUsadoIn(Schema):
+    produto_id: int
+    quantidade: int
+    # Vazio = usa o valor unitário cadastrado no produto.
+    valor_unitario: Decimal | None = None
+
+    @field_validator("quantidade")
+    @classmethod
+    def _quantidade(cls, valor):
+        if not (1 <= valor <= 1_000_000):
+            raise ValueError("A quantidade utilizada deve ser maior que zero.")
+        return valor
+
+    @field_validator("valor_unitario")
+    @classmethod
+    def _valor_unitario(cls, valor):
+        if valor is None:
+            return valor
+        if not (0 <= valor <= VALOR_MAX):
+            raise ValueError("O valor unitário deve estar entre R$ 0,00 e R$ 99.999.999,99.")
+        return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 class PreparacaoIn(Schema):
     nome: str
+    # Valor do serviço/mão de obra, sem os produtos. O custo total soma os produtos do estoque.
     custo: Decimal
     data: date
     status: str = "concluido"
+    produtos: list[ProdutoUsadoIn] = []
 
     @field_validator("nome")
     @classmethod
@@ -333,12 +358,46 @@ class PreparacaoIn(Schema):
         return valor
 
 
+class ProdutoUsadoOut(Schema):
+    produto_id: int
+    nome: str
+    quantidade: int
+    valor_unitario: float
+    valor_total: float
+
+
 class PreparacaoOut(Schema):
     id: int
     nome: str
+    # Custo total (serviço + produtos).
     custo: float
     data: date
     status: str
+    # Parte do custo que é serviço (custo - produtos).
+    custo_servico: float = 0
+    produtos: list[ProdutoUsadoOut] = []
+
+    @staticmethod
+    def _agrupados(obj):
+        grupos: dict[int, dict] = {}
+        for uso in obj.produtos_utilizados.select_related("produto"):
+            g = grupos.setdefault(
+                uso.produto_id,
+                {"produto_id": uso.produto_id, "nome": uso.produto.nome, "quantidade": 0,
+                 "valor_unitario": float(uso.valor_unitario), "valor_total": 0.0},
+            )
+            g["quantidade"] += uso.quantidade
+            g["valor_total"] += float(uso.valor_unitario) * uso.quantidade
+        return list(grupos.values())
+
+    @staticmethod
+    def resolve_produtos(obj):
+        return PreparacaoOut._agrupados(obj)
+
+    @staticmethod
+    def resolve_custo_servico(obj):
+        produtos = sum(g["valor_total"] for g in PreparacaoOut._agrupados(obj))
+        return round(float(obj.custo) - produtos, 2)
 
 
 class HistoricoIn(Schema):
@@ -358,6 +417,98 @@ class HistoricoOut(Schema):
     positivo: bool
 
 
+class ModeloOut(Schema):
+    id: int
+    nome: str
+    marca_id: int
+
+
+class ModeloIn(_OpcaoIn):
+    marca_id: int
+
+
+class ModeloUpdate(Schema):
+    nome: str | None = None
+    marca_id: int | None = None
+
+    @field_validator("nome")
+    @classmethod
+    def _nome(cls, valor):
+        return None if valor is None else _texto_obrigatorio(valor, "nome do modelo", 60)
+
+
+class VagaOut(Schema):
+    id: int
+    nome: str
+    posicao: str
+    # Veículo que ocupa a vaga agora (vendidos não contam). None = livre.
+    ocupada_por_id: int | None = None
+    ocupada_por: str | None = None
+
+    @staticmethod
+    def _ocupante(obj):
+        # list_vagas já preenche "ocupante" com uma consulta só; nos demais casos buscamos aqui.
+        if hasattr(obj, "ocupante"):
+            return obj.ocupante
+        from .enums import StatusVeiculo
+        from .models import Veiculo
+
+        return (
+            Veiculo.objects.filter(vaga_cadastro_id=obj.id)
+            .exclude(status=StatusVeiculo.VENDIDO)
+            .select_related("marca")
+            .first()
+        )
+
+    @staticmethod
+    def resolve_ocupada_por_id(obj):
+        ocupante = VagaOut._ocupante(obj)
+        return ocupante.id if ocupante else None
+
+    @staticmethod
+    def resolve_ocupada_por(obj):
+        ocupante = VagaOut._ocupante(obj)
+        return f"{ocupante.marca.nome} {ocupante.modelo} · {ocupante.placa}" if ocupante else None
+
+
+class VagaIn(Schema):
+    nome: str
+    posicao: str = ""
+
+    @field_validator("nome")
+    @classmethod
+    def _nome(cls, valor):
+        return _texto_obrigatorio(valor, "nome da vaga", 10)
+
+    @field_validator("posicao")
+    @classmethod
+    def _posicao(cls, valor):
+        valor = " ".join(valor.split())
+        if len(valor) > 60:
+            raise ValueError("A posição aceita no máximo 60 caracteres.")
+        return valor
+
+
+class VagaUpdate(Schema):
+    nome: str | None = None
+    posicao: str | None = None
+
+    @field_validator("nome")
+    @classmethod
+    def _nome(cls, valor):
+        return None if valor is None else _texto_obrigatorio(valor, "nome da vaga", 10)
+
+    @field_validator("posicao")
+    @classmethod
+    def _posicao(cls, valor):
+        if valor is None:
+            return valor
+        valor = " ".join(valor.split())
+        if len(valor) > 60:
+            raise ValueError("A posição aceita no máximo 60 caracteres.")
+        return valor
+
+
 class VeiculoIn(_VeiculoValidacoes):
     ano_modelo: int
     ano_fabricacao: date
@@ -372,13 +523,13 @@ class VeiculoIn(_VeiculoValidacoes):
     status: str = "disponivel"
     renavam: str
     valor: Decimal
-    modelo: str
+    modelo_id: int
     placa: str
     marca_id: int
     cambio_id: int
     combustivel_id: int
     carroceria_id: int
-    vaga: str = ""
+    vaga_id: int | None = None
     custo_aquisicao: Decimal = Decimal("0")
     observacoes: str = ""
 
@@ -396,9 +547,9 @@ class VeiculoUpdate(_VeiculoValidacoes):
     status: str | None = None
     renavam: str | None = None
     valor: Decimal | None = None
-    modelo: str | None = None
+    modelo_id: int | None = None
     placa: str | None = None
-    vaga: str | None = None
+    vaga_id: int | None = None
     marca_id: int | None = None
     cambio_id: int | None = None
     combustivel_id: int | None = None
@@ -452,6 +603,9 @@ class VeiculoOut(Schema):
     cambio_id: int
     combustivel_id: int
     carroceria_id: int
+    modelo_id: int | None = None
+    vaga_id: int | None = None
+    vaga_posicao: str = ""
     custo_aquisicao: float
     observacoes: str
     # Caminho relativo à raiz da API (o front junta com VITE_API_URL). None = sem foto.
@@ -513,6 +667,18 @@ class VeiculoOut(Schema):
         if hasattr(obj, "imagem_principal"):
             return []
         return obj.imagens.defer("arquivo").order_by("ordem", "id")
+
+    @staticmethod
+    def resolve_modelo_id(obj):
+        return obj.modelo_cadastro_id
+
+    @staticmethod
+    def resolve_vaga_id(obj):
+        return obj.vaga_cadastro_id
+
+    @staticmethod
+    def resolve_vaga_posicao(obj):
+        return obj.vaga_cadastro.posicao if obj.vaga_cadastro_id else ""
 
     @staticmethod
     def resolve_marca(obj):

@@ -36,16 +36,21 @@ def gerar_conta_do_lote(compra, vencimento=None):
     )
 
 
-def registrar_compra_do_novo_lote(lote, funcionario_id):
-    valor_unitario = lote.produto.valor_unitario
-    if valor_unitario is None or valor_unitario <= 0:
-        raise HttpError(422, "Informe um valor unitário maior que zero no produto antes de cadastrar o lote.")
+def registrar_compra_do_novo_lote(lote, funcionario_id, valor_total=None):
+    """Lança a compra do lote. Sem `valor_total`, usa valor unitário do produto x quantidade."""
+    if valor_total is None:
+        valor_unitario = lote.produto.valor_unitario
+        if valor_unitario is None or valor_unitario <= 0:
+            raise HttpError(422, "Informe um valor unitário maior que zero no produto antes de cadastrar o lote.")
+        valor_total = valor_unitario * lote.quantidade
+    elif valor_total <= 0:
+        raise HttpError(422, "O valor total da entrada deve ser maior que zero.")
 
     compra = Compra(
         funcionario_id=funcionario_id,
         lote=lote,
         item_compra=ItemCompra.PRODUTO,
-        valor_compra=valor_unitario * lote.quantidade,
+        valor_compra=valor_total,
         data_compra=timezone.localdate(),
         status=StatusCompra.CONCLUIDA,
     )

@@ -43,3 +43,28 @@ class Lote(models.Model):
     def __str__(self):
         return f"Lote {self.numero_lote} - {self.produto.nome}"
     produto_id = None
+
+
+class MovimentacaoEstoque(models.Model):
+    """Histórico de tudo que entra e sai do estoque (entrada de lote, ajuste manual, uso em procedimento...)."""
+
+    class Tipo(models.TextChoices):
+        ENTRADA = "entrada", "Entrada"
+        SAIDA = "saida", "Saída"
+
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT, related_name="movimentacoes")
+    lote = models.ForeignKey(Lote, on_delete=models.PROTECT, related_name="movimentacoes", null=True, blank=True)
+    tipo = models.CharField(max_length=10, choices=Tipo.choices)
+    quantidade = models.PositiveIntegerField()
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    motivo = models.CharField(max_length=200, blank=True, default="")
+    funcionario = models.ForeignKey(
+        "employees.Funcionario", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criado_em", "-id"]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} de {self.quantidade} x {self.produto.nome}"

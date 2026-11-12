@@ -1,4 +1,4 @@
-export type PatioStatus = 'Disponível' | 'Reservado' | 'Preparação'
+export type PatioStatus = 'Disponível' | 'Reservado' | 'Preparação' | 'Vendido'
 
 export type VeiculoApi = {
   id: number

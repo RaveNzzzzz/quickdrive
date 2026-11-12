@@ -199,3 +199,116 @@
     flex-wrap: wrap;
   }
 }
+
+/* Botão e modal de ajuste de estoque */
+
+.estoque-adjust {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.estoque-lote-inicial {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.estoque-lote-inicial legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.ajuste-modo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ajuste-modo button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-h);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ajuste-modo button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.ajuste-modo button.ajuste-saida.active {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.ajuste-atual {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ajuste-stepper {
+  display: flex;
+  gap: 8px;
+}
+
+.ajuste-stepper input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.ajuste-stepper .btn {
+  padding: 8px 12px;
+}
+
+.ajuste-calculo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.ajuste-calculo strong {
+  font-size: 16px;
+}
+
+.ajuste-calculo-erro {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.ajuste-total {
+  display: flex;
+  gap: 8px;
+}
+
+.ajuste-total input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ajuste-dica {
+  margin: 6px 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}

@@ -418,6 +418,103 @@
   color: var(--text-h);
 }
 
+.ficha-custo-produtos {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ficha-custo-chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ficha-custo-chip-servico {
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+/* Procedimento com produtos do estoque (modal) */
+
+.proc-linhas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.proc-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1.1fr) auto auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+@media (max-width: 760px) {
+  .proc-linha {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .proc-produto {
+    grid-column: 1 / -1;
+  }
+}
+
+.proc-subtotal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.proc-subtotal strong {
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.proc-total {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.proc-total > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.proc-total strong {
+  font-size: 15px;
+  color: var(--text-h);
+}
+
+.proc-total-geral {
+  background: var(--accent-bg) !important;
+}
+
+.proc-total-geral strong {
+  color: var(--accent);
+}
+
 .ficha-custo-data {
   font-size: 13px;
   color: var(--text-muted);

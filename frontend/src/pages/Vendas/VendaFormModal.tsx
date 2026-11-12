@@ -2,12 +2,16 @@ import { useEffect, useId, useState, type FormEvent } from 'react'
 import { api } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { Modal } from '../../components/Modal'
-import type { Paginated, StatusVendaApi, VeiculoApi, VendaApi } from '../../types'
+import { toast } from '../../utils/toast'
+import { ClienteFormModal } from '../Clientes/ClienteFormModal'
+import { resumoComissao } from './comissao'
+import type { ClienteApi, Paginated, StatusVendaApi, VeiculoApi, VendaApi } from '../../types'
 import { todayIso } from '../Financeiro/financeiroUtils'
 import { formasPagamento } from './formasPagamento'
 
 // Só o que o formulário usa de cliente e funcionário.
-type PessoaOpcao = { id: number; pessoa: { nome: string } }
+// `comissao` (% do vendedor) só vem na lista de funcionários, que é restrita a gerentes.
+type PessoaOpcao = { id: number; pessoa: { nome: string }; comissao?: string | number }
 
 const statusOptions: { value: StatusVendaApi; label: string }[] = [
   { value: 'pendente', label: 'Pendente' },
@@ -52,6 +56,8 @@ export function VendaFormModal({ venda, inicial, aviso, onClose, onSaved }: Prop
   const [data, setData] = useState(venda?.data_venda ?? todayIso())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Cadastro de cliente aberto por cima da venda.
+  const [cadastrandoCliente, setCadastrandoCliente] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -84,6 +90,17 @@ export function VendaFormModal({ venda, inicial, aviso, onClose, onSaved }: Prop
     // Sugere o preço anunciado do veículo; o vendedor pode mudar depois.
     const veiculo = veiculos.find((v) => String(v.id) === id)
     if (veiculo) setValor(String(veiculo.valor))
+  }
+
+  function handleClienteCadastrado(cliente: ClienteApi) {
+    setClientes((atuais) =>
+      [...atuais.filter((c) => c.id !== cliente.id), cliente].sort((a, b) =>
+        a.pessoa.nome.localeCompare(b.pessoa.nome, 'pt-BR'),
+      ),
+    )
+    setClienteId(String(cliente.id))
+    setCadastrandoCliente(false)
+    toast.success('Cliente cadastrado com sucesso!')
   }
 
   async function submit(event: FormEvent) {
@@ -126,7 +143,13 @@ export function VendaFormModal({ venda, inicial, aviso, onClose, onSaved }: Prop
   const reservadoPorOutro =
     !inicial && veiculos.find((v) => String(v.id) === veiculoId)?.status === 'reservado'
 
+  // Comissão do vendedor escolhido (só gerentes enxergam a lista de funcionários com o percentual).
+  const vendedorEscolhido = vendedores.find((f) => String(f.id) === funcionarioId)
+  const percentualComissao = vendedorEscolhido?.comissao != null ? Number(vendedorEscolhido.comissao) : null
+  const valorNumeroForm = Number(valor.replace(',', '.'))
+
   return (
+    <>
     <Modal
       title={venda ? 'Editar venda' : inicial ? 'Registrar venda' : 'Nova venda'}
       onClose={onClose}
@@ -177,7 +200,17 @@ export function VendaFormModal({ venda, inicial, aviso, onClose, onSaved }: Prop
             </>
           )}
 
-          <label htmlFor={`${formId}-cliente`}>Cliente</label>
+          <div className="vd-label-row">
+            <label htmlFor={`${formId}-cliente`}>Cliente</label>
+            <button
+              type="button"
+              className="vd-link-btn"
+              onClick={() => setCadastrandoCliente(true)}
+              disabled={saving || loading}
+            >
+              + Novo cliente
+            </button>
+          </div>
           <select id={`${formId}-cliente`} value={clienteId} onChange={(e) => setClienteId(e.target.value)} required>
             <option value="">{loading ? 'Carregando…' : 'Selecione'}</option>
             {clientes.map((c) => (
@@ -203,6 +236,12 @@ export function VendaFormModal({ venda, inicial, aviso, onClose, onSaved }: Prop
                   </option>
                 ))}
               </select>
+              {vendedorEscolhido && (
+                <div className="vd-comissao" aria-live="polite">
+                  <span>Comissão do vendedor</span>
+                  <strong>{resumoComissao(valorNumeroForm, percentualComissao)}</strong>
+                </div>
+              )}
             </>
           ) : semVendedor ? (
             <p>Sua conta não está ligada a um funcionário, então não pode registrar vendas.</p>
@@ -267,5 +306,13 @@ export function VendaFormModal({ venda, inicial, aviso, onClose, onSaved }: Prop
         </fieldset>
       </form>
     </Modal>
+
+    {cadastrandoCliente && (
+      <ClienteFormModal
+        onClose={() => setCadastrandoCliente(false)}
+        onSaved={handleClienteCadastrado}
+      />
+    )}
+    </>
   )
 }
