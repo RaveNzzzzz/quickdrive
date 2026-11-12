@@ -12,6 +12,9 @@ export type Conta = {
   /** Venda (conta a receber) ou compra (conta a pagar) que gerou a conta, se houver. */
   originId: number | null
   automatic?: boolean
+  /** Tem comprovante de pagamento anexado. */
+  hasProof?: boolean
+  proofName?: string
   description: string
   note: string
   category: string
@@ -28,6 +31,8 @@ export function fromContaReceber(conta: ContaReceberApi): Conta {
     kind: 'receber',
     parentId: conta.receita_id,
     originId: conta.venda_id,
+    hasProof: conta.tem_comprovante,
+    proofName: conta.comprovante_nome,
     description: conta.descricao,
     note: conta.receita,
     category: conta.categoria,
@@ -45,6 +50,8 @@ export function fromContaPagar(conta: ContaPagarApi): Conta {
     parentId: conta.despesa_id,
     originId: conta.compra_id,
     automatic: conta.gerada_por_compra,
+    hasProof: conta.tem_comprovante,
+    proofName: conta.comprovante_nome,
     description: conta.descricao,
     note: conta.despesa,
     category: conta.categoria,
@@ -57,6 +64,11 @@ export function fromContaPagar(conta: ContaPagarApi): Conta {
 /** Caminho da conta na API, ex.: /financeiro/contas-receber/3 */
 export function contaPath(conta: Conta) {
   return `/financeiro/contas-${conta.kind}/${conta.id}`
+}
+
+/** Caminho do comprovante da conta na API, ex.: /financeiro/contas-pagar/3/comprovante */
+export function comprovantePath(conta: Conta) {
+  return `${contaPath(conta)}/comprovante`
 }
 
 export function todayIso() {

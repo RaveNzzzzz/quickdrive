@@ -199,6 +199,9 @@ export type ContaReceberApi = {
   data_vencimento: string
   data_recebimento: string | null
   status: 'pendente' | 'recebido' | 'cancelado'
+  /** Comprovante de pagamento (foto ou PDF) anexado à conta. */
+  tem_comprovante: boolean
+  comprovante_nome: string
 }
 
 export type ContaPagarApi = {
@@ -213,6 +216,8 @@ export type ContaPagarApi = {
   valor: number
   data_vencimento: string
   data_pagamento: string | null
+  tem_comprovante: boolean
+  comprovante_nome: string
   status: 'pendente' | 'pago' | 'cancelado'
 }
 
@@ -240,6 +245,8 @@ export type CompraApi = {
   forma_pagamento: string | null
   status: 'pendente' | 'concluida' | 'cancelada'
   data_compra: string
+  tem_comprovante: boolean
+  comprovante_nome: string
 }
 
 // --- Funil de vendas (backend: sales/schemas.py, Negociacao*) ---

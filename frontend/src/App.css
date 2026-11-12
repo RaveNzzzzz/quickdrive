@@ -329,3 +329,37 @@
 .recharts-tooltip-item {
   color: var(--text-h) !important;
 }
+
+/* Botões coloridos por tipo (Financeiro): receber = verde, pagar = vermelho. */
+
+.btn-receive {
+  background: #16a34a;
+  color: #fff;
+}
+
+.btn-receive:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.btn-pay {
+  background: #dc2626;
+  color: #fff;
+}
+
+.btn-pay:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.btn-receive:disabled,
+.btn-pay:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+:root[data-theme='contrast'] .btn-receive {
+  background: #00692a;
+}
+
+:root[data-theme='contrast'] .btn-pay {
+  background: #b00020;
+}

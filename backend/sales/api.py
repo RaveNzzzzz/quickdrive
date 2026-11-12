@@ -6,11 +6,12 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Query, Router
+from ninja import File, Query, Router, UploadedFile
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 
 from accounts.authentication import JWTAuth, pode_gerenciar
+from core import comprovante
 from customers.models import Cliente
 from employees.models import Funcionario
 from stock.models import Lote
@@ -176,9 +177,10 @@ COMPRA_ANULAVEIS = ("cliente_id", "veiculo_id", "lote_id", "forma_pagamento")
 
 
 def _compras():
+    # O comprovante (bytes) só é lido na rota de download.
     return Compra.objects.select_related(
         "funcionario__pessoa", "cliente__pessoa", "veiculo__marca", "lote__produto"
-    )
+    ).defer("comprovante")
 
 
 @compras_router.get("", response=list[CompraOut])
@@ -232,6 +234,27 @@ def atualizar_compra(request, compra_id: int, payload: CompraUpdate):
         sincronizar_conta_do_lote(compra, anterior)
         compra.save()
     return _compras().get(pk=compra.pk)
+
+
+@compras_router.post("/{int:compra_id}/comprovante", response=CompraOut)
+def enviar_comprovante_compra(request, compra_id: int, arquivo: UploadedFile = File(...)):
+    with transaction.atomic():
+        compra = get_object_or_404(Compra.objects.select_for_update().defer("comprovante"), id=compra_id)
+        comprovante.guardar(compra, arquivo)
+    return _compras().get(pk=compra_id)
+
+
+@compras_router.get("/{int:compra_id}/comprovante", response={200: None})
+def baixar_comprovante_compra(request, compra_id: int):
+    return comprovante.resposta(get_object_or_404(Compra, id=compra_id))
+
+
+@compras_router.delete("/{int:compra_id}/comprovante", response=CompraOut)
+def remover_comprovante_compra(request, compra_id: int):
+    with transaction.atomic():
+        compra = get_object_or_404(Compra.objects.select_for_update().defer("comprovante"), id=compra_id)
+        comprovante.limpar(compra)
+    return _compras().get(pk=compra_id)
 
 
 @compras_router.delete("/{int:compra_id}", response={204: None})

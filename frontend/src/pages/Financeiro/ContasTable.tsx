@@ -1,7 +1,10 @@
 import { TableSkeleton } from '../../components/Skeleton'
 import { useState } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Check, MoreHorizontal, Pencil, Search, Trash2, Undo2 } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Check, Eye, MoreHorizontal, Paperclip, Pencil, Search, Trash2, Undo2 } from 'lucide-react'
 import { Pagination } from '../../components/Pagination'
+import { MASCARA_VALOR, mascarar } from '../../utils/privacy'
+import { resumoComissao } from '../Vendas/comissao'
+import { ContaDetalhesModal } from './ContaDetalhesModal'
 import {
   type Conta,
   currencyCents,
@@ -44,6 +47,12 @@ type ContasTableProps = {
   loading: boolean
   /** Conta sendo salva agora (o botão dela fica desabilitado). */
   busyKey: string | null
+  /** Valores escondidos (botão "Ocultar valores"). */
+  oculto: boolean
+  /** Mostra a coluna de comissão do vendedor (só para quem gerencia). */
+  mostrarComissao: boolean
+  /** Percentual de comissão do vendedor da venda que originou a conta a receber (undefined = sem venda). */
+  comissaoDe: (conta: Conta) => number | null | undefined
 }
 
 export function ContasTable({
@@ -57,11 +66,16 @@ export function ContasTable({
   onDelete,
   loading,
   busyKey,
+  oculto,
+  mostrarComissao,
+  comissaoDe,
 }: ContasTableProps) {
+  const colunas = mostrarComissao ? 8 : 7
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<ContaStatus | 'todos'>('todos')
   const [page, setPage] = useState(1)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [detalhes, setDetalhes] = useState<Conta | null>(null)
 
   const q = query.trim().toLowerCase()
   const filtered = rows.filter((conta) => {
@@ -143,6 +157,7 @@ export function ContasTable({
                 <th>Categoria</th>
                 <th>Vencimento</th>
                 <th className="fx-right">Valor</th>
+                {mostrarComissao && <th className="fx-right">Comissão</th>}
                 <th>Status</th>
                 <th className="fx-right">Ações</th>
               </tr>
@@ -153,7 +168,19 @@ export function ContasTable({
                 return (
                   <tr key={conta.key} className={contaStatus === 'atrasado' ? 'fx-row-late' : ''}>
                     <td>
-                      <strong className="fx-name">{conta.description}</strong>
+                      <strong className="fx-name">
+                        <button
+                          type="button"
+                          className="fx-name-link"
+                          onClick={() => setDetalhes(conta)}
+                          title="Ver detalhes e comprovante"
+                        >
+                          {conta.description}
+                        </button>
+                        {conta.hasProof && (
+                          <Paperclip size={13} className="fx-clip" aria-label="Tem comprovante anexado" />
+                        )}
+                      </strong>
                       <span className="fx-note">{conta.note}</span>
                     </td>
                     <td>
@@ -171,8 +198,17 @@ export function ContasTable({
                     </td>
                     <td className={`fx-right fx-amount fx-amount-${conta.kind}`}>
                       {conta.kind === 'pagar' ? '− ' : ''}
-                      {currencyCents.format(conta.amount)}
+                      {mascarar(currencyCents.format(conta.amount), oculto)}
                     </td>
+                    {mostrarComissao && (
+                      <td className="fx-right fx-comissao-cell">
+                        {conta.kind === 'receber' && conta.originId !== null
+                          ? oculto
+                            ? MASCARA_VALOR
+                            : resumoComissao(conta.amount, comissaoDe(conta))
+                          : '—'}
+                      </td>
+                    )}
                     <td>
                       <span className={`fx-pill fx-pill-${contaStatus}`}>
                         {statusLabel(contaStatus, conta.kind)}
@@ -224,6 +260,18 @@ export function ContasTable({
                                   <Pencil size={14} />
                                   Editar
                                 </button>
+                                {conta.hasProof && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenMenu(null)
+                                      setDetalhes(conta)
+                                    }}
+                                  >
+                                    <Eye size={14} />
+                                    Ver comprovante
+                                  </button>
+                                )}
                                   {!conta.automatic && <button
                                   type="button"
                                   className="fx-menu-danger"
@@ -245,10 +293,10 @@ export function ContasTable({
                 )
               })}
 
-              {loading && <TableSkeleton cols={7} />}
+              {loading && <TableSkeleton cols={colunas} />}
               {!loading && pageItems.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="fx-empty">
+                  <td colSpan={colunas} className="fx-empty">
                     {loading ? 'Carregando…' : 'Nenhuma conta encontrada para esses filtros.'}
                   </td>
                 </tr>
@@ -259,16 +307,33 @@ export function ContasTable({
 
         <div className="fx-totals">
           <span>
-            Entradas <strong className="fx-amount-receber">{currencyCents.format(entradas)}</strong>
+            Entradas <strong className="fx-amount-receber">{mascarar(currencyCents.format(entradas), oculto)}</strong>
           </span>
           <span>
-            Saídas <strong className="fx-amount-pagar">{currencyCents.format(saidas)}</strong>
+            Saídas <strong className="fx-amount-pagar">{mascarar(currencyCents.format(saidas), oculto)}</strong>
           </span>
           <span>
-            Saldo <strong>{currencyCents.format(entradas - saidas)}</strong>
+            Saldo <strong>{mascarar(currencyCents.format(entradas - saidas), oculto)}</strong>
           </span>
         </div>
       </div>
+
+      {detalhes && (
+        <ContaDetalhesModal
+          conta={detalhes}
+          today={today}
+          oculto={oculto}
+          comissao={
+            mostrarComissao && detalhes.kind === 'receber' && detalhes.originId !== null
+              ? oculto
+                ? MASCARA_VALOR
+                : resumoComissao(detalhes.amount, comissaoDe(detalhes))
+              : null
+          }
+          onClose={() => setDetalhes(null)}
+          onEdit={onEdit}
+        />
+      )}
 
       <Pagination
         page={currentPage}

@@ -506,3 +506,208 @@
 .fx-form .fx-form-check input {
   width: auto;
 }
+
+/* Botões do cabeçalho (ocultar valores + criar) */
+
+.fx-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Comissão do vendedor (formulário e tabela) */
+
+.fx-comissao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.fx-comissao small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.fx-comissao strong {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.fx-comissao-cell {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fx-clip {
+  margin-left: 6px;
+  vertical-align: -1px;
+  color: var(--text-muted);
+}
+
+/* Comprovante de pagamento (conta a receber) */
+
+.fx-proof {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fx-form .fx-proof-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.fx-proof-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.fx-proof-current span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fx-proof-note {
+  font-size: 13px;
+}
+
+/* Descrição clicável na listagem (abre os detalhes) */
+
+.fx-name-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.fx-name-link:hover,
+.fx-name-link:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+/* Modal de detalhes da conta */
+
+.fx-details-title {
+  margin-bottom: 14px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.fx-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .fx-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fx-details-grid dt {
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.fx-details-grid dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.fx-details-grid small {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.fx-details-proof {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.fx-details-proof h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.fx-details-empty {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.fx-proof-img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  object-fit: contain;
+}
+
+.fx-proof-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.fx-proof-link:hover {
+  text-decoration: underline;
+}
+
+/* Confirmação de pagamento/recebimento */
+
+.fx-baixa-resumo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.fx-baixa-resumo span {
+  font-weight: 700;
+  white-space: nowrap;
+}

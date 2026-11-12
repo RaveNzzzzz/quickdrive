@@ -96,6 +96,13 @@ class ContaReceberOut(Schema):
     data_vencimento: date
     data_recebimento: date | None = None
     status: str
+    # O arquivo em si é baixado em /contas-receber/{id}/comprovante; aqui só o aviso de que existe.
+    tem_comprovante: bool = False
+    comprovante_nome: str = ""
+
+    @staticmethod
+    def resolve_tem_comprovante(obj):
+        return obj.tem_comprovante
 
     @staticmethod
     def resolve_receita(obj):
@@ -141,6 +148,12 @@ class ContaPagarOut(Schema):
     data_vencimento: date
     data_pagamento: date | None = None
     status: str
+    tem_comprovante: bool = False
+    comprovante_nome: str = ""
+
+    @staticmethod
+    def resolve_tem_comprovante(obj):
+        return obj.tem_comprovante
 
     @staticmethod
     def resolve_despesa(obj):

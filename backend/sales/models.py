@@ -5,7 +5,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from core.models import TimeStampedModel
+from core.models import ComprovanteMixin, TimeStampedModel
 
 from .enums import (
     EtapaNegociacao,
@@ -47,7 +47,7 @@ class Venda(TimeStampedModel):
         return f"Venda {self.pk} - {self.veiculo}"
 
 
-class Compra(TimeStampedModel):
+class Compra(ComprovanteMixin, TimeStampedModel):
     """O que a loja compra: um veículo (ex.: de um cliente) ou um lote de produtos."""
 
     funcionario = models.ForeignKey("employees.Funcionario", on_delete=models.PROTECT, related_name="compras")

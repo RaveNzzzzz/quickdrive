@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from core.models import TimeStampedModel
+from core.models import ComprovanteMixin, TimeStampedModel
 
 from .enums import StatusContaPagar, StatusContaReceber
 
@@ -41,7 +41,7 @@ class Despesa(TimeStampedModel):
         return f"{self.descricao} ({self.data})"
 
 
-class ContaReceber(TimeStampedModel):
+class ContaReceber(ComprovanteMixin, TimeStampedModel):
     """Uma parcela a receber. Uma receita (ou uma venda) pode gerar várias contas."""
 
     receita = models.ForeignKey(Receita, on_delete=models.PROTECT, related_name="contas_receber")
@@ -70,7 +70,7 @@ class ContaReceber(TimeStampedModel):
             raise ValidationError({"data_recebimento": "Informe a data em que a conta foi recebida."})
 
 
-class ContaPagar(TimeStampedModel):
+class ContaPagar(ComprovanteMixin, TimeStampedModel):
     """Uma parcela a pagar. Uma despesa (ou uma compra) pode gerar várias contas."""
 
     despesa = models.ForeignKey(Despesa, on_delete=models.PROTECT, related_name="contas_pagar")
