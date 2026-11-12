@@ -122,6 +122,12 @@ class CompraOut(Schema):
     forma_pagamento: str | None
     status: str
     data_compra: date
+    tem_comprovante: bool = False
+    comprovante_nome: str = ""
+
+    @staticmethod
+    def resolve_tem_comprovante(obj):
+        return obj.tem_comprovante
 
     @staticmethod
     def resolve_funcionario(obj):

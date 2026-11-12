@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { mascarar } from '../../utils/privacy'
 import { currencyCents, currencyCompact, daysFrom, type Conta, type DateRange } from './financeiroUtils'
 
 const tick = { fontSize: 12, fill: 'var(--text-muted)' }
@@ -48,7 +49,7 @@ function buildBuckets(range: DateRange) {
 }
 
 // Entradas x saídas across the selected period
-export function FluxoCaixaChart({ contas, range }: { contas: Conta[]; range: DateRange }) {
+export function FluxoCaixaChart({ contas, range, oculto }: { contas: Conta[]; range: DateRange; oculto: boolean }) {
   const { unit, data } = useMemo(() => {
     const { unit, buckets, indexOf } = buildBuckets(range)
     for (const conta of contas) {
@@ -75,10 +76,10 @@ export function FluxoCaixaChart({ contas, range }: { contas: Conta[]; range: Dat
             axisLine={false}
             tick={tick}
             width={64}
-            tickFormatter={(v: number) => currencyCompact.format(v)}
+            tickFormatter={(v: number) => (oculto ? '' : currencyCompact.format(v))}
           />
           <Tooltip
-            formatter={(value) => currencyCents.format(Number(value))}
+            formatter={(value) => mascarar(currencyCents.format(Number(value)), oculto)}
             labelFormatter={(label) => (unit === 'semana' ? `Semana de ${label}` : label)}
             cursor={{ fill: 'var(--bg)' }}
           />
@@ -92,7 +93,7 @@ export function FluxoCaixaChart({ contas, range }: { contas: Conta[]; range: Dat
 }
 
 // Where the money goes: payables by category
-export function CategoriasChart({ contas }: { contas: Conta[] }) {
+export function CategoriasChart({ contas, oculto }: { contas: Conta[]; oculto: boolean }) {
   const data = useMemo(() => {
     const byCategory = new Map<string, number>()
     for (const conta of contas) {
@@ -126,7 +127,7 @@ export function CategoriasChart({ contas }: { contas: Conta[] }) {
               width={120}
             />
             <Tooltip
-              formatter={(value) => currencyCents.format(Number(value))}
+              formatter={(value) => mascarar(currencyCents.format(Number(value)), oculto)}
               cursor={{ fill: 'var(--bg)' }}
             />
             <Bar dataKey="value" name="Total" fill="var(--accent)" radius={[0, 6, 6, 0]} barSize={16} isAnimationActive={false} />

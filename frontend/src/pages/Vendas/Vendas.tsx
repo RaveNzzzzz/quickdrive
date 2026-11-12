@@ -10,10 +10,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Download, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Download, Eye, EyeOff, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { api } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { toast } from '../../utils/toast'
+import { MASCARA_VALOR, mascarar, useValoresOcultos } from '../../utils/privacy'
 import { KpiSkeleton, ChartSkeleton, TableSkeleton } from '../../components/Skeleton'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
@@ -140,6 +141,7 @@ export default function Vendas() {
   const { user } = useAuth()
   // Comissão dos vendedores: só para quem gerencia (a lista de funcionários também é restrita a eles).
   const verComissao = !!user?.pode_gerenciar
+  const [oculto, setOculto] = useValoresOcultos()
   const [comissoes, setComissoes] = useState<Map<number, number>>(new Map())
   const [vendas, setVendas] = useState<Venda[]>([])
   const [loading, setLoading] = useState(true)
@@ -313,13 +315,13 @@ export default function Vendas() {
             <h3>Faturamento</h3>
             <Change value={before && percentChange(current.faturamento, before.faturamento)} />
           </div>
-          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(current.faturamento)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : mascarar(currency.format(current.faturamento), oculto)}</strong>
           <div className="vd-goal">
             <div className="vd-goal-bar">
               <div style={{ width: `${metaPct}%` }} />
             </div>
             <p className="kpi-helper">
-              {metaPct}% da meta de {currencyCompact.format(metaFaturamento)}
+              {metaPct}% da meta de {mascarar(currencyCompact.format(metaFaturamento), oculto)}
             </p>
           </div>
         </div>
@@ -338,7 +340,7 @@ export default function Vendas() {
             <h3>Ticket médio</h3>
             <Change value={before && percentChange(current.ticket, before.ticket)} />
           </div>
-          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(current.ticket)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : mascarar(currency.format(current.ticket), oculto)}</strong>
           <p className="kpi-helper">Por venda paga no período</p>
         </div>
 
@@ -347,7 +349,7 @@ export default function Vendas() {
             <h3>A receber</h3>
             <span className="trend-badge trend-neutral">{current.abertas} abertas</span>
           </div>
-          <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(current.aReceber)}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton /> : mascarar(currency.format(current.aReceber), oculto)}</strong>
           <p className="kpi-helper">Vendas pendentes de pagamento</p>
         </div>
       </div>
@@ -371,14 +373,14 @@ export default function Vendas() {
               axisLine={false}
               width={64}
               tick={{ fontSize: 12, fill: 'var(--text-muted)' }}
-              tickFormatter={(v: number) => currencyCompact.format(v)}
+              tickFormatter={(v: number) => (oculto ? '' : currencyCompact.format(v))}
             />
-            <Tooltip formatter={(value) => currencyCents.format(Number(value))} cursor={{ fill: 'var(--bg)' }} />
+            <Tooltip formatter={(value) => mascarar(currencyCents.format(Number(value)), oculto)} cursor={{ fill: 'var(--bg)' }} />
             <ReferenceLine
               y={metaFaturamento}
               stroke="var(--danger)"
               strokeDasharray="5 5"
-              label={{ value: `Meta ${currencyCompact.format(metaFaturamento)}`, position: 'insideTopRight', fill: 'var(--danger)', fontSize: 12 }}
+              label={{ value: oculto ? 'Meta' : `Meta ${currencyCompact.format(metaFaturamento)}`, position: 'insideTopRight', fill: 'var(--danger)', fontSize: 12 }}
             />
             <Bar dataKey="value" name="Faturamento" radius={[6, 6, 0, 0]} isAnimationActive={false}>
               {faturamentoMensal.map((item, index) => (
@@ -441,6 +443,16 @@ export default function Vendas() {
               )}
             </select>
             <DateRangePicker value={range ?? currentMonthRange()} onChange={handleRangeChange} />
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setOculto(!oculto)}
+              aria-pressed={oculto}
+              title={oculto ? 'Mostrar valores' : 'Ocultar valores'}
+            >
+              {oculto ? <EyeOff size={16} /> : <Eye size={16} />}
+              {oculto ? 'Mostrar valores' : 'Ocultar valores'}
+            </button>
             <button type="button" className="btn btn-outline" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download size={16} />
               Exportar
@@ -483,12 +495,14 @@ export default function Vendas() {
                       {venda.seller}
                     </span>
                   </td>
-                  <td className="vd-value">{currencyCents.format(venda.value)}</td>
+                  <td className="vd-value">{mascarar(currencyCents.format(venda.value), oculto)}</td>
                   {verComissao && (
                     <td className="vd-comissao-cell">
                       {venda.status === 'Cancelada'
                         ? '—'
-                        : resumoComissao(venda.value, comissoes.get(venda.raw.funcionario_id))}
+                        : oculto
+                          ? MASCARA_VALOR
+                          : resumoComissao(venda.value, comissoes.get(venda.raw.funcionario_id))}
                     </td>
                   )}
                   <td>

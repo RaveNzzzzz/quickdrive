@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Eye, EyeOff, Plus } from 'lucide-react'
 import { api } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
 import { toast } from '../../utils/toast'
+import { mascarar, useValoresOcultos } from '../../utils/privacy'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import { Modal } from '../../components/Modal'
-import type { ContaPagarApi, ContaReceberApi, Paginated } from '../../types'
+import type { ContaPagarApi, ContaReceberApi, Paginated, VendaApi } from '../../types'
 import type { FuncionarioApi } from '../Funcionarios/funcionariosData'
+import { BaixaContaModal } from './BaixaContaModal'
+import { CompraFormModal } from './CompraFormModal'
 import { ContaFormModal } from './ContaFormModal'
 import { ContasTable, type ContasTab } from './ContasTable'
 import { CategoriasChart, FluxoCaixaChart } from './FinanceiroCharts'
@@ -23,6 +27,7 @@ import {
   sum,
   todayIso,
   type Conta,
+  type ContaKind,
   type DateRange,
 } from './financeiroUtils'
 import './Financeiro.css'
@@ -65,6 +70,16 @@ function summarize(list: Conta[]) {
 
 export default function Financeiro() {
   const today = todayIso()
+  const { user } = useAuth()
+  // Comissão do vendedor: só para quem gerencia (a lista de funcionários com o percentual é restrita).
+  const verComissao = !!user?.pode_gerenciar
+  const [oculto, setOculto] = useValoresOcultos()
+  const fmt = (valor: number) => mascarar(currency.format(valor), oculto)
+  const [comissoes, setComissoes] = useState<Map<number, number>>(new Map())
+  const [vendedorDaVenda, setVendedorDaVenda] = useState<Map<number, number>>(new Map())
+  const [comprando, setComprando] = useState(false)
+  // Conta que está sendo marcada como paga/recebida (abre a confirmação com o comprovante opcional).
+  const [baixa, setBaixa] = useState<Conta | null>(null)
   const [contas, setContas] = useState<Conta[]>([])
   const [payroll, setPayroll] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -74,8 +89,8 @@ export default function Financeiro() {
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [deletion, setDeletion] = useState<Conta | null>(null)
   const [deleteError, setDeleteError] = useState('')
-  // null = formulário fechado; { conta } = editando; {} = nova conta
-  const [editor, setEditor] = useState<{ conta?: Conta } | null>(null)
+  // null = formulário fechado; { conta } = editando; { kind } = nova conta daquele tipo
+  const [editor, setEditor] = useState<{ conta?: Conta; kind?: ContaKind } | null>(null)
   const [range, setRange] = useState<DateRange>(() => {
     const [y, m] = today.split('-').map(Number)
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -90,16 +105,21 @@ export default function Financeiro() {
       api<Paginated<ContaReceberApi>>('/financeiro/contas-receber?limit=1000'),
       api<Paginated<ContaPagarApi>>('/financeiro/contas-pagar?limit=1000'),
       // Folha salarial: soma fixa dos ativos, não entra como conta até alguém lançá-la.
-      api<Paginated<FuncionarioApi>>('/funcionarios?ativo=true&limit=1000'),
+      // Todos os funcionários (a comissão também vale para quem já saiu); a folha só conta os ativos.
+      api<Paginated<FuncionarioApi>>('/funcionarios?limit=1000'),
+      // Para saber quem vendeu cada venda (comissão das contas a receber).
+      api<Paginated<VendaApi>>('/vendas?limit=1000'),
     ])
-      .then(([receber, pagar, funcionarios]) => {
+      .then(([receber, pagar, funcionarios, vendas]) => {
         if (!active) return
         // Contas canceladas não entram nas contas do caixa.
         setContas([
           ...receber.items.filter((c) => c.status !== 'cancelado').map(fromContaReceber),
           ...pagar.items.filter((c) => c.status !== 'cancelado').map(fromContaPagar),
         ])
-        setPayroll(funcionarios.items.reduce((sum, f) => sum + Number(f.salario), 0))
+        setPayroll(funcionarios.items.filter((f) => f.ativo).reduce((sum, f) => sum + Number(f.salario), 0))
+        setComissoes(new Map(funcionarios.items.map((f) => [f.id, Number(f.comissao)])))
+        setVendedorDaVenda(new Map(vendas.items.map((v) => [v.id, v.funcionario_id])))
       })
       .catch((err: Error) => {
         if (active) setError(err.message)
@@ -134,17 +154,17 @@ export default function Financeiro() {
     {
       label: 'A receber',
       value: current.receberAberto,
-      helper: `${current.receberAbertoCount} em aberto · ${currency.format(current.recebido)} já recebido`,
+      helper: `${current.receberAbertoCount} em aberto · ${fmt(current.recebido)} já recebido`,
       change: percentChange(current.receberAberto, previous.receberAberto),
       goodWhenUp: true,
     },
     {
       label: 'A pagar',
       value: current.pagarAberto + payroll,
-      helper: `${current.pagarAbertoCount} em aberto · ${currency.format(current.pago)} já pago`,
+      helper: `${current.pagarAbertoCount} em aberto · ${fmt(current.pago)} já pago`,
       change: percentChange(current.pagarAberto, previous.pagarAberto),
       goodWhenUp: false,
-      highlight: payroll > 0 ? `Inclui ${currency.format(payroll)} de folha salarial fixa prevista` : undefined,
+      highlight: payroll > 0 ? `Inclui ${fmt(payroll)} de folha salarial fixa prevista` : undefined,
     },
   ]
 
@@ -183,6 +203,18 @@ export default function Financeiro() {
     }
   }
 
+  // Marcar como pago/recebido abre a confirmação (com o comprovante opcional); "Desfazer" é direto.
+  function handleTogglePaid(conta: Conta) {
+    if (conta.paidAt) void togglePaid(conta)
+    else setBaixa(conta)
+  }
+
+  function baixaConfirmada(conta: Conta) {
+    setContas((prev) => prev.map((c) => (c.key === conta.key ? conta : c)))
+    setBaixa(null)
+    toast.success(conta.kind === 'receber' ? 'Conta marcada como recebida.' : 'Conta marcada como paga.')
+  }
+
   function saved(conta: Conta) {
     setContas((prev) =>
       prev.some((c) => c.key === conta.key) ? prev.map((c) => (c.key === conta.key ? conta : c)) : [...prev, conta],
@@ -218,10 +250,30 @@ export default function Financeiro() {
       <div className="fx-header">
         <DateRangePicker value={range} onChange={setRange} />
 
-        <button type="button" className="btn btn-primary" onClick={() => setEditor({})}>
-          <Plus size={16} />
-          Nova conta
-        </button>
+        <div className="fx-header-actions">
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => setOculto(!oculto)}
+            aria-pressed={oculto}
+            title={oculto ? 'Mostrar valores' : 'Ocultar valores'}
+          >
+            {oculto ? <EyeOff size={16} /> : <Eye size={16} />}
+            {oculto ? 'Mostrar valores' : 'Ocultar valores'}
+          </button>
+          <button type="button" className="btn btn-receive" onClick={() => setEditor({ kind: 'receber' })}>
+            <Plus size={16} />
+            Conta a receber
+          </button>
+          <button type="button" className="btn btn-pay" onClick={() => setEditor({ kind: 'pagar' })}>
+            <Plus size={16} />
+            Conta a pagar
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => setComprando(true)}>
+            <Plus size={16} />
+            Compras
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -253,7 +305,7 @@ export default function Financeiro() {
               <h3>{kpi.label}</h3>
               <ChangeBadge change={kpi.change} goodWhenUp={kpi.goodWhenUp} />
             </div>
-            <strong className="kpi-value">{loading ? <KpiSkeleton /> : currency.format(kpi.value)}</strong>
+            <strong className="kpi-value">{loading ? <KpiSkeleton /> : fmt(kpi.value)}</strong>
             <p className="kpi-helper">{kpi.helper}</p>
             {kpi.highlight && <span className="fx-kpi-highlight">{kpi.highlight}</span>}
           </div>
@@ -270,7 +322,7 @@ export default function Financeiro() {
               {overdue.length > 0 ? 'Atenção' : 'Em dia'}
             </span>
           </div>
-          <strong className="kpi-value">{currency.format(sum(overdue))}</strong>
+          <strong className="kpi-value">{fmt(sum(overdue))}</strong>
           <p className="kpi-helper">
             {overdue.length > 0
               ? `${overdue.length} ${overdue.length === 1 ? 'conta' : 'contas'} · ver contas →`
@@ -291,8 +343,8 @@ export default function Financeiro() {
           </>
         ) : (
           <>
-            <FluxoCaixaChart contas={periodContas} range={range} />
-            <CategoriasChart contas={periodContas} />
+            <FluxoCaixaChart contas={periodContas} range={range} oculto={oculto} />
+            <CategoriasChart contas={periodContas} oculto={oculto} />
           </>
         )}
       </div>
@@ -303,14 +355,50 @@ export default function Financeiro() {
         tab={tab}
         tabCounts={tabCounts}
         onTabChange={setTab}
-        onTogglePaid={togglePaid}
+        onTogglePaid={handleTogglePaid}
         onEdit={(conta) => setEditor({ conta })}
         onDelete={askDelete}
         loading={loading}
         busyKey={busyKey}
+        oculto={oculto}
+        mostrarComissao={verComissao}
+        comissaoDe={(conta) =>
+          conta.kind === 'receber' && conta.originId !== null
+            ? comissoes.get(vendedorDaVenda.get(conta.originId) ?? -1)
+            : undefined
+        }
       />
 
-      {editor && <ContaFormModal conta={editor.conta} onClose={() => setEditor(null)} onSaved={saved} />}
+      {editor && (
+        <ContaFormModal
+          conta={editor.conta}
+          kind={editor.kind}
+          comissoes={verComissao ? comissoes : undefined}
+          onClose={() => setEditor(null)}
+          onSaved={saved}
+        />
+      )}
+
+      {baixa && (
+        <BaixaContaModal conta={baixa} oculto={oculto} onClose={() => setBaixa(null)} onConfirmed={baixaConfirmada} />
+      )}
+
+      {comprando && (
+        <CompraFormModal
+          onClose={() => setComprando(false)}
+          onSaved={(compra) => {
+            setComprando(false)
+            toast.success(
+              compra.item_compra === 'produto'
+                ? 'Compra registrada. A conta a pagar foi gerada automaticamente.'
+                : 'Compra registrada com sucesso!',
+            )
+            // A compra de produtos gera conta a pagar: recarrega a lista.
+            setLoading(true)
+            setAttempt((v) => v + 1)
+          }}
+        />
+      )}
 
       {deletion && (
         <Modal

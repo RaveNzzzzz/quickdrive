@@ -19,6 +19,8 @@
 
   --shadow: 0 10px 25px -8px rgba(20, 21, 26, 0.12);
   --on-accent: #ffffff;
+  /* Seta das listas de seleção: o SVG não enxerga as variáveis do tema, então há uma cor por tema. */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   --card-border: 1px solid var(--border);
 
   --sans: "Plus Jakarta Sans", system-ui, "Segoe UI", Roboto, sans-serif;
@@ -97,6 +99,7 @@ button {
   --warning-bg: rgba(251, 191, 36, 0.14);
 
   --shadow: 0 10px 25px -8px rgba(0, 0, 0, 0.55);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b4bdcc' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
 
@@ -121,6 +124,7 @@ button {
 
   --shadow: none;
   --card-border: 2px solid #000000;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   color-scheme: light;
 }
 
@@ -137,4 +141,16 @@ button {
 :where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea) {
   background-color: var(--surface);
   color: var(--text-h);
+}
+
+/* Listas de seleção (<select>): seta própria, na cor do tema e com folga à direita. */
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px;
+  padding-right: 36px;
 }

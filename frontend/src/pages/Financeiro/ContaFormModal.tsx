@@ -1,8 +1,13 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { api } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
 import { Modal } from '../../components/Modal'
 import type { CompraApi, ContaPagarApi, ContaReceberApi, LancamentoApi, Paginated, VendaApi } from '../../types'
-import { contaPath, fromContaPagar, fromContaReceber, todayIso, type Conta, type ContaKind } from './financeiroUtils'
+import { toast } from '../../utils/toast'
+import { resumoComissao } from '../Vendas/comissao'
+import { abrirComprovante } from './comprovante'
+import { ComprovanteField } from './ComprovanteField'
+import { comprovantePath, contaPath, fromContaPagar, fromContaReceber, todayIso, type Conta, type ContaKind } from './financeiroUtils'
 
 // Valor do <select> que significa "criar uma receita/despesa nova junto com a conta".
 const NOVO = 'novo'
@@ -10,19 +15,27 @@ const NOVO = 'novo'
 type Props = {
   /** Conta a editar. Sem ela, o formulário cria uma nova. */
   conta?: Conta
+  /** Tipo da conta nova (cada botão da tela abre o formulário do seu tipo). Ao editar, vale o tipo da conta. */
+  kind?: ContaKind
+  /** Percentual de comissão de cada vendedor (id do funcionário -> %). Só vem para quem gerencia. */
+  comissoes?: Map<number, number>
   onClose: () => void
   onSaved: (conta: Conta) => void
 }
 
-export function ContaFormModal({ conta, onClose, onSaved }: Props) {
+export function ContaFormModal({ conta, kind: kindInicial = 'pagar', comissoes, onClose, onSaved }: Props) {
   const formId = useId()
+  const { user } = useAuth()
+  const kind: ContaKind = conta?.kind ?? kindInicial
+  const receber = kind === 'receber'
+  const verComissao = !!user?.pode_gerenciar && !!comissoes
+
   const [receitas, setReceitas] = useState<LancamentoApi[]>([])
   const [despesas, setDespesas] = useState<LancamentoApi[]>([])
   const [vendas, setVendas] = useState<VendaApi[]>([])
   const [compras, setCompras] = useState<CompraApi[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [kind, setKind] = useState<ContaKind>(conta?.kind ?? 'pagar')
   const [description, setDescription] = useState(conta?.description ?? '')
   const [amount, setAmount] = useState(conta ? String(conta.amount) : '')
   const [dueDate, setDueDate] = useState(conta?.dueDate ?? todayIso())
@@ -33,6 +46,9 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
   const [newParentCategory, setNewParentCategory] = useState('')
   const [paid, setPaid] = useState(!!conta?.paidAt)
   const [paidAt, setPaidAt] = useState(conta?.paidAt ?? todayIso())
+  // Comprovante de pagamento.
+  const [proofFile, setProofFile] = useState<File | null>(null)
+  const [removeProof, setRemoveProof] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -62,17 +78,14 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
     }
   }, [])
 
-  const lancamentos = kind === 'receber' ? receitas : despesas
-  const parentLabel = kind === 'receber' ? 'Receita' : 'Despesa'
+  const lancamentos = receber ? receitas : despesas
+  const parentLabel = receber ? 'Receita' : 'Despesa'
   // Sugestões para o campo de categoria (as que já existem no tipo escolhido).
   const categorias = [...new Set(lancamentos.map((l) => l.categoria))].sort()
 
-  function changeKind(next: ContaKind) {
-    setKind(next)
-    // A receita/despesa e a venda/compra escolhidas não valem para o outro tipo.
-    setParentId('')
-    setOriginId('')
-  }
+  // Comissão do vendedor da venda ligada à conta (só para quem gerencia).
+  const vendaLigada = receber && originId ? vendas.find((v) => String(v.id) === originId) : undefined
+  const valorNumero = Number(amount.replace(',', '.'))
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -83,7 +96,7 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
       setError('Informe um valor maior que zero.')
       return
     }
-    const basePath = kind === 'receber' ? '/financeiro/receitas' : '/financeiro/despesas'
+    const basePath = receber ? '/financeiro/receitas' : '/financeiro/despesas'
     setSaving(true)
     try {
       let lancamentoId = Number(parentId)
@@ -99,42 +112,56 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
         })
         lancamentoId = criado.id
         // Se a conta falhar logo abaixo, tentar de novo usa esta receita/despesa em vez de criar outra.
-        if (kind === 'receber') setReceitas((prev) => [criado, ...prev])
+        if (receber) setReceitas((prev) => [criado, ...prev])
         else setDespesas((prev) => [criado, ...prev])
         setParentId(String(criado.id))
       }
 
-      const payload =
-        kind === 'receber'
-          ? {
-              receita_id: lancamentoId,
-              venda_id: originId ? Number(originId) : null,
-              status: paid ? 'recebido' : 'pendente',
-              data_recebimento: paid ? paidAt : null,
-            }
-          : {
-              despesa_id: lancamentoId,
-              compra_id: originId ? Number(originId) : null,
-              status: paid ? 'pago' : 'pendente',
-              data_pagamento: paid ? paidAt : null,
-            }
+      const payload = receber
+        ? {
+            receita_id: lancamentoId,
+            venda_id: originId ? Number(originId) : null,
+            status: paid ? 'recebido' : 'pendente',
+            data_recebimento: paid ? paidAt : null,
+          }
+        : {
+            despesa_id: lancamentoId,
+            compra_id: originId ? Number(originId) : null,
+            status: paid ? 'pago' : 'pendente',
+            data_pagamento: paid ? paidAt : null,
+          }
       const body = JSON.stringify({ ...payload, descricao: description, valor: valor.toFixed(2), data_vencimento: dueDate })
       const options = { method: conta ? 'PATCH' : 'POST', body }
       const path = conta ? contaPath(conta) : `/financeiro/contas-${kind}`
-      onSaved(
-        kind === 'receber'
-          ? fromContaReceber(await api<ContaReceberApi>(path, options))
-          : fromContaPagar(await api<ContaPagarApi>(path, options)),
-      )
+
+      let salva = await api<ContaReceberApi | ContaPagarApi>(path, options)
+      // O comprovante vai separado (arquivo não cabe em JSON). Se falhar, a conta já está salva.
+      const comprovanteUrl = `/financeiro/contas-${kind}/${salva.id}/comprovante`
+      try {
+        if (proofFile) {
+          const body = new FormData()
+          body.append('arquivo', proofFile)
+          salva = await api<ContaReceberApi | ContaPagarApi>(comprovanteUrl, { method: 'POST', body })
+        } else if (removeProof && conta?.hasProof) {
+          salva = await api<ContaReceberApi | ContaPagarApi>(comprovanteUrl, { method: 'DELETE' })
+        }
+      } catch (err) {
+        toast.error(
+          `A conta foi salva, mas o comprovante não: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+        )
+      }
+      onSaved(receber ? fromContaReceber(salva as ContaReceberApi) : fromContaPagar(salva as ContaPagarApi))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível salvar.')
       setSaving(false)
     }
   }
 
+  const titulo = `${conta ? 'Editar' : 'Nova'} conta a ${receber ? 'receber' : 'pagar'}`
+
   return (
     <Modal
-      title={conta ? 'Editar conta' : 'Nova conta'}
+      title={titulo}
       onClose={onClose}
       busy={saving}
       footer={
@@ -147,7 +174,12 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
           <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
-          <button type="submit" form={formId} className="btn btn-primary" disabled={saving || loading}>
+          <button
+            type="submit"
+            form={formId}
+            className={`btn ${receber ? 'btn-receive' : 'btn-pay'}`}
+            disabled={saving || loading}
+          >
             {saving ? 'Salvando…' : 'Salvar'}
           </button>
         </>
@@ -155,26 +187,12 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
     >
       <form id={formId} className="fx-form" onSubmit={submit}>
         <fieldset disabled={saving || loading}>
-          {conta ? (
-            <p>
-              Tipo: <strong>{conta.kind === 'receber' ? 'Conta a receber' : 'Conta a pagar'}</strong>
-            </p>
-          ) : (
-            <>
-              <label htmlFor={`${formId}-kind`}>Tipo</label>
-              <select id={`${formId}-kind`} value={kind} onChange={(e) => changeKind(e.target.value as ContaKind)}>
-                <option value="pagar">Conta a pagar</option>
-                <option value="receber">Conta a receber</option>
-              </select>
-            </>
-          )}
-
           <label htmlFor={`${formId}-description`}>Descrição</label>
           <input
             id={`${formId}-description`}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={kind === 'receber' ? 'Ex.: Ana Souza · parcela 1/3' : 'Ex.: Conta de luz de outubro'}
+            placeholder={receber ? 'Ex.: Ana Souza · parcela 1/3' : 'Ex.: Conta de luz de outubro'}
             maxLength={200}
             required
           />
@@ -223,7 +241,7 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
                   id={`${formId}-parent-name`}
                   value={newParentName}
                   onChange={(e) => setNewParentName(e.target.value)}
-                  placeholder={kind === 'receber' ? 'Ex.: Venda do Gol' : 'Ex.: Energia elétrica'}
+                  placeholder={receber ? 'Ex.: Venda do Gol' : 'Ex.: Energia elétrica'}
                   maxLength={200}
                   required
                 />
@@ -235,7 +253,7 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
                   list={`${formId}-categories`}
                   value={newParentCategory}
                   onChange={(e) => setNewParentCategory(e.target.value)}
-                  placeholder={kind === 'receber' ? 'Ex.: Financiamento' : 'Ex.: Contas de consumo'}
+                  placeholder={receber ? 'Ex.: Financiamento' : 'Ex.: Contas de consumo'}
                   maxLength={60}
                   required
                 />
@@ -248,10 +266,10 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
             </div>
           )}
 
-          <label htmlFor={`${formId}-origin`}>{kind === 'receber' ? 'Venda (opcional)' : 'Compra (opcional)'}</label>
+          <label htmlFor={`${formId}-origin`}>{receber ? 'Venda (opcional)' : 'Compra (opcional)'}</label>
           <select id={`${formId}-origin`} value={originId} onChange={(e) => setOriginId(e.target.value)} disabled={conta?.automatic}>
-            <option value="">{kind === 'receber' ? 'Nenhuma venda' : 'Nenhuma compra'}</option>
-            {kind === 'receber'
+            <option value="">{receber ? 'Nenhuma venda' : 'Nenhuma compra'}</option>
+            {receber
               ? vendas.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.veiculo} ({v.placa}) · {v.cliente}
@@ -264,16 +282,35 @@ export function ContaFormModal({ conta, onClose, onSaved }: Props) {
                 ))}
           </select>
 
+          {verComissao && vendaLigada && (
+            <div className="fx-comissao" aria-live="polite">
+              <span>
+                Comissão de {vendaLigada.funcionario}
+                <small>sobre o valor desta conta</small>
+              </span>
+              <strong>{resumoComissao(valorNumero, comissoes?.get(vendaLigada.funcionario_id))}</strong>
+            </div>
+          )}
+
           <label className="fx-form-check">
             <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
-            {kind === 'receber' ? 'Já foi recebida' : 'Já foi paga'}
+            {receber ? 'Já foi recebida' : 'Já foi paga'}
           </label>
           {paid && (
             <>
-              <label htmlFor={`${formId}-paid-at`}>{kind === 'receber' ? 'Data do recebimento' : 'Data do pagamento'}</label>
+              <label htmlFor={`${formId}-paid-at`}>{receber ? 'Data do recebimento' : 'Data do pagamento'}</label>
               <input id={`${formId}-paid-at`} type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} required />
             </>
           )}
+
+          <ComprovanteField
+            savedName={conta?.hasProof ? conta.proofName : null}
+            onView={conta ? () => void abrirComprovante(comprovantePath(conta)) : undefined}
+            file={proofFile}
+            onFile={setProofFile}
+            removed={removeProof}
+            onRemovedChange={setRemoveProof}
+          />
         </fieldset>
       </form>
     </Modal>

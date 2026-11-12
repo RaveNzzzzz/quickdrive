@@ -1,11 +1,12 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router
+from ninja import File, Router, UploadedFile
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 
 from accounts.authentication import GestaoJWTAuth
+from core import comprovante
 from sales.models import Compra, Venda
 
 from .enums import StatusContaPagar, StatusContaReceber
@@ -152,7 +153,8 @@ def excluir_despesa(request, despesa_id: int):
 
 
 def _contas_receber():
-    return ContaReceber.objects.select_related("receita")
+    # O comprovante (bytes) só é lido na rota de download.
+    return ContaReceber.objects.select_related("receita").defer("comprovante")
 
 
 @contas_receber_router.get("", response=list[ContaReceberOut])
@@ -207,11 +209,36 @@ def excluir_conta_receber(request, conta_id: int):
     return 204, None
 
 
+# --- Comprovante de pagamento da conta a receber ---
+
+
+@contas_receber_router.post("/{int:conta_id}/comprovante", response=ContaReceberOut)
+def enviar_comprovante_receber(request, conta_id: int, arquivo: UploadedFile = File(...)):
+    with transaction.atomic():
+        conta = get_object_or_404(ContaReceber.objects.select_for_update().defer("comprovante"), id=conta_id)
+        comprovante.guardar(conta, arquivo)
+    return _contas_receber().get(pk=conta_id)
+
+
+@contas_receber_router.get("/{int:conta_id}/comprovante", response={200: None})
+def baixar_comprovante_receber(request, conta_id: int):
+    return comprovante.resposta(get_object_or_404(ContaReceber, id=conta_id))
+
+
+@contas_receber_router.delete("/{int:conta_id}/comprovante", response=ContaReceberOut)
+def remover_comprovante_receber(request, conta_id: int):
+    with transaction.atomic():
+        conta = get_object_or_404(ContaReceber.objects.select_for_update().defer("comprovante"), id=conta_id)
+        comprovante.limpar(conta)
+    return _contas_receber().get(pk=conta_id)
+
+
 # --- Contas a pagar ---
 
 
 def _contas_pagar():
-    return ContaPagar.objects.select_related("despesa")
+    # O comprovante (bytes) só é lido na rota de download.
+    return ContaPagar.objects.select_related("despesa").defer("comprovante")
 
 
 def _conferir_vinculo_manual(compra_id=None, despesa_id=None):
@@ -293,3 +320,27 @@ def excluir_conta_pagar(request, conta_id: int):
             raise HttpError(409, "Cancele a compra para cancelar sua conta a pagar.")
         conta.delete()
     return 204, None
+
+
+# --- Comprovante de pagamento da conta a pagar ---
+
+
+@contas_pagar_router.post("/{int:conta_id}/comprovante", response=ContaPagarOut)
+def enviar_comprovante_pagar(request, conta_id: int, arquivo: UploadedFile = File(...)):
+    with transaction.atomic():
+        conta = get_object_or_404(ContaPagar.objects.select_for_update().defer("comprovante"), id=conta_id)
+        comprovante.guardar(conta, arquivo)
+    return _contas_pagar().get(pk=conta_id)
+
+
+@contas_pagar_router.get("/{int:conta_id}/comprovante", response={200: None})
+def baixar_comprovante_pagar(request, conta_id: int):
+    return comprovante.resposta(get_object_or_404(ContaPagar, id=conta_id))
+
+
+@contas_pagar_router.delete("/{int:conta_id}/comprovante", response=ContaPagarOut)
+def remover_comprovante_pagar(request, conta_id: int):
+    with transaction.atomic():
+        conta = get_object_or_404(ContaPagar.objects.select_for_update().defer("comprovante"), id=conta_id)
+        comprovante.limpar(conta)
+    return _contas_pagar().get(pk=conta_id)

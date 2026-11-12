@@ -110,3 +110,19 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   return res.status === 204 ? (null as T) : ((await res.json()) as T)
 }
+
+/** Baixa um arquivo protegido (ex.: comprovante) como Blob, já com o token de acesso. */
+export async function apiBlob(path: string): Promise<Blob> {
+  const request = (token: string | null) =>
+    fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+
+  let res = await request(tokens.access)
+  if (res.status === 401 && (await refreshAccessToken())) {
+    res = await request(tokens.access)
+  }
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(errorMessage(detail.detail) ?? `Erro ${res.status}`)
+  }
+  return res.blob()
+}
