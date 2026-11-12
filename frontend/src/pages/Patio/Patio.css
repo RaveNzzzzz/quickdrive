@@ -253,3 +253,101 @@
 a.vehicle-link {
   text-decoration: none;
 }
+
+/* Vendidos (aba própria) */
+
+.patio-status-vendido {
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+/* Filtro de marca e menu de ordenação */
+
+.patio-brand-filter {
+  width: 190px;
+}
+
+.patio-sort {
+  position: relative;
+}
+
+.patio-sort-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 230px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.patio-sort-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-h);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.patio-sort-menu button:hover {
+  background: var(--bg);
+}
+
+.patio-sort-menu button.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Card do veículo: clicável em qualquer ponto (o link "Ver ficha" cobre o card todo) e com destaque no hover. */
+
+.vehicle-card {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.vehicle-card:hover,
+.vehicle-card:focus-within {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 16px 32px -10px rgba(0, 166, 244, 0.35);
+}
+
+.vehicle-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+}
+
+.vehicle-link:focus-visible {
+  outline: none;
+}
+
+.vehicle-card:has(.vehicle-link:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vehicle-card {
+    transition: none;
+  }
+
+  .vehicle-card:hover,
+  .vehicle-card:focus-within {
+    transform: none;
+  }
+}

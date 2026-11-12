@@ -27,6 +27,33 @@ class Carroceria(models.Model):
     def __str__(self):
         return self.nome
 
+class Modelo(models.Model):
+    """Modelo de veículo cadastrado (ex.: Impreza WRX), sempre de uma marca."""
+
+    nome = models.CharField(max_length=60)
+    marca = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name="modelos")
+
+    class Meta:
+        ordering = ["nome"]
+        constraints = [models.UniqueConstraint(fields=["marca", "nome"], name="modelo_unico_por_marca")]
+
+    def __str__(self):
+        return f"{self.marca} {self.nome}"
+
+
+class Vaga(models.Model):
+    """Vaga do pátio onde o veículo fica, com a posição dela na loja (ex.: frente da loja, destaque, depósito)."""
+
+    nome = models.CharField(max_length=10, unique=True)
+    posicao = models.CharField(max_length=60, blank=True, default="")
+
+    class Meta:
+        ordering = ["nome"]
+
+    def __str__(self):
+        return f"{self.nome} ({self.posicao})" if self.posicao else self.nome
+
+
 class Veiculo(models.Model):
 
     ano_modelo = models.PositiveIntegerField()
@@ -45,7 +72,10 @@ class Veiculo(models.Model):
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     modelo = models.CharField(max_length=60)
     placa = models.CharField(max_length=8, unique=True)
+    # `modelo` e `vaga` (texto) guardam o nome do cadastro escolhido: o resto do sistema continua lendo o texto.
     vaga = models.CharField(max_length=10, blank=True, default="")
+    modelo_cadastro = models.ForeignKey(Modelo, on_delete=models.PROTECT, null=True, blank=True, related_name="veiculos")
+    vaga_cadastro = models.ForeignKey(Vaga, on_delete=models.PROTECT, null=True, blank=True, related_name="veiculos")
     custo_aquisicao = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     observacoes = models.TextField(blank=True, default="")
 
@@ -64,6 +94,26 @@ class Preparacao(models.Model):
     data = models.DateField()
     status = models.CharField(max_length=20, choices=StatusPreparacao.choices, default=StatusPreparacao.PENDENTE)
     veiculo = models.ForeignKey(Veiculo, on_delete=models.CASCADE, related_name="preparacoes")
+
+
+class ProdutoUtilizado(models.Model):
+    """Produto do estoque usado num procedimento (preparação) do veículo.
+
+    Guarda de qual lote saiu a quantidade (um procedimento pode usar mais de um lote do mesmo
+    produto) e o valor unitário usado no cálculo, para poder devolver ao estoque se for excluído.
+    """
+
+    preparacao = models.ForeignKey(Preparacao, on_delete=models.CASCADE, related_name="produtos_utilizados")
+    produto = models.ForeignKey("stock.Produto", on_delete=models.PROTECT, related_name="usos_em_veiculos")
+    lote = models.ForeignKey("stock.Lote", on_delete=models.PROTECT, related_name="usos_em_veiculos")
+    quantidade = models.PositiveIntegerField()
+    valor_unitario = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.quantidade} x {self.produto.nome} ({self.preparacao_id})"
 
 
 class Revisao(models.Model):

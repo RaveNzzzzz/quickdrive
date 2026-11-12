@@ -1,18 +1,24 @@
 from ninja import Router
 from ninja.errors import HttpError
-from accounts.authentication import JWTAuth
+from accounts.authentication import JWTAuth, pode_gerenciar
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 
+from employees.models import Funcionario
 from sales.purchase_finance import registrar_compra_do_novo_lote
+
+from . import services
 
 from .models import CategoriaProduto, Produto, Lote
 from .schemas import (
     CategoriaProdutoIn,
     CategoriaProdutoOut,
+    EntradaIn,
+    ProdutoCriadoOut,
     ProdutoIn,
     ProdutoOut,
+    SaidaIn,
     LoteIn,
     LoteOut,
     CategoriaProdutoUpdate,
@@ -21,6 +27,24 @@ from .schemas import (
 )
 
 router = Router(tags=["stock"], auth=JWTAuth())
+
+
+def _responsavel(request, funcionario_id: int | None) -> int:
+    """Funcionário que assina a compra do lote.
+
+    Quem tem funcionário vinculado compra em seu nome. Gerentes/administradores sem vínculo
+    (ex.: o usuário administrador) escolhem o responsável.
+    """
+    proprio = request.user.funcionario_id
+    if funcionario_id is not None and funcionario_id != proprio:
+        if not pode_gerenciar(request.user):
+            raise HttpError(403, "Você só pode lançar compras em seu próprio nome.")
+        if not Funcionario.objects.filter(id=funcionario_id).exists():
+            raise HttpError(404, "Funcionário não encontrado.")
+        return funcionario_id
+    if proprio is None:
+        raise HttpError(422, "Escolha o funcionário responsável pela compra.")
+    return proprio
 
 
 @router.get("/categorias", response=list[CategoriaProdutoOut])
@@ -57,7 +81,7 @@ def list_produtos(request):
     """
     return Produto.objects.order_by("nome")
 
-@router.post("/produtos", response={201: ProdutoOut})
+@router.post("/produtos", response={201: ProdutoCriadoOut})
 def create_produto(request, payload: ProdutoIn):
     nome = payload.nome.strip()
     especificacao = payload.especificacao.strip()
@@ -72,13 +96,61 @@ def create_produto(request, payload: ProdutoIn):
     except CategoriaProduto.DoesNotExist:
         raise HttpError(404, "Categoria não encontrada.")
 
-    produto = Produto.objects.create(
-        nome=nome,
-        especificacao=especificacao,
-        categoria=categoria,
-        valor_unitario=payload.valor_unitario,
-    )
+    inicial = payload.lote
+    if inicial is not None:
+        # O lote vira uma compra no financeiro, então precisa de um valor para lançar.
+        sem_valor = payload.valor_unitario is None or payload.valor_unitario <= 0
+        if sem_valor and inicial.valor_total is None:
+            raise HttpError(422, "Informe o valor unitário do produto (ou o valor total do lote) para cadastrar o lote.")
+
+    # Produto e lote inicial entram juntos: se o lote falhar, o produto também não é criado.
+    with transaction.atomic():
+        produto = Produto.objects.create(
+            nome=nome,
+            especificacao=especificacao,
+            categoria=categoria,
+            valor_unitario=payload.valor_unitario,
+        )
+        produto.lote = None
+        if inicial is not None:
+            produto.lote = services.entrada(
+                produto,
+                inicial.quantidade,
+                _responsavel(request, inicial.funcionario_id),
+                valor_total=inicial.valor_total,
+                numero_lote=inicial.numero_lote,
+                data_validade=inicial.data_validade,
+                motivo="Lote inicial do produto",
+            )
     return 201, produto
+
+
+@router.post("/produtos/{int:produto_id}/entrada", response={201: LoteOut})
+def entrada_estoque(request, produto_id: int, payload: EntradaIn):
+    """Aumenta o estoque manualmente: cria um lote e lança a compra (valor total editável)."""
+    with transaction.atomic():
+        produto = get_object_or_404(Produto.objects.select_for_update(), id=produto_id)
+        lote = services.entrada(
+            produto,
+            payload.quantidade,
+            _responsavel(request, payload.funcionario_id),
+            valor_total=payload.valor_total,
+            numero_lote=payload.numero_lote,
+            data_validade=payload.data_validade,
+            motivo=payload.motivo.strip() or "Entrada manual",
+        )
+    return 201, lote
+
+
+@router.post("/produtos/{int:produto_id}/saida", response=list[LoteOut])
+def saida_estoque(request, produto_id: int, payload: SaidaIn):
+    """Diminui o estoque manualmente (os lotes que vencem primeiro saem primeiro). Devolve os lotes alterados."""
+    with transaction.atomic():
+        produto = get_object_or_404(Produto.objects.select_for_update(), id=produto_id)
+        usados = services.saida(
+            produto, payload.quantidade, request.user.funcionario_id, payload.motivo.strip() or "Saída manual"
+        )
+    return [lote for lote, _ in usados]
 
 
 @router.get("/lotes", response=list[LoteOut])
@@ -97,9 +169,7 @@ def create_lote(request, payload: LoteIn):
 
     if not numero_lote:
         raise HttpError(422, "Informe o número do lote.")
-    funcionario_id = request.user.funcionario_id
-    if funcionario_id is None:
-        raise HttpError(422, "Vincule seu usuário a um funcionário antes de cadastrar um lote.")
+    funcionario_id = _responsavel(request, payload.funcionario_id)
 
     try:
         with transaction.atomic():

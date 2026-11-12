@@ -13,6 +13,15 @@ export type Paginated<T> = {
 // O VeiculoApi substitui o que você já tinha; OpcaoApi e VeiculoPayload são novos.
 
 export type OpcaoApi = { id: number; nome: string }
+export type ModeloApi = { id: number; nome: string; marca_id: number }
+export type VagaApi = {
+  id: number
+  nome: string
+  posicao: string
+  /** Veículo que ocupa a vaga (null = livre). */
+  ocupada_por_id: number | null
+  ocupada_por: string | null
+}
 
 export type ImagemVeiculoApi = {
   id: number
@@ -48,6 +57,10 @@ export type VeiculoApi = {
   cambio_id: number
   combustivel_id: number
   carroceria_id: number
+  modelo_id: number | null
+  vaga_id: number | null
+  /** Posição da vaga na loja (ex.: Frente da loja). */
+  vaga_posicao: string
   /** Caminho da foto principal/capa (ex.: /veiculos/3/imagens/9?v=123) ou null se não tiver. */
   imagem_url: string | null
   /** Galeria completa. Só vem preenchida ao buscar um veículo específico (não na listagem). */
@@ -80,10 +93,22 @@ export type DocumentoVeiculoApi = {
   regular: boolean
 }
 
+export type ProdutoUsadoApi = {
+  produto_id: number
+  nome: string
+  quantidade: number
+  valor_unitario: number
+  valor_total: number
+}
+
 export type CustoPreparacaoApi = {
   id: number
   nome: string
+  /** Custo total: serviço + produtos do estoque. */
   custo: number
+  /** Parte do custo que é serviço. */
+  custo_servico: number
+  produtos: ProdutoUsadoApi[]
   /** AAAA-MM-DD */
   data: string
   status: string
@@ -99,7 +124,7 @@ export type HistoricoVeiculoApi = {
 
 export type VeiculoPayload = {
   marca_id: number
-  modelo: string
+  modelo_id: number
   versao: string
   cor: string
   placa: string
@@ -117,7 +142,7 @@ export type VeiculoPayload = {
   quilometragem: number
   valor: number
   status: string
-  vaga: string
+  vaga_id: number | null
   custo_aquisicao: number
   observacoes: string
 }
@@ -129,6 +154,7 @@ export type ProdutoApi = {
   categoria_id: number
   valor_unitario: string | null
 }
+export type ProdutoCriadoApi = ProdutoApi & { lote: LoteApi | null }
 export type LoteApi = { id: number; quantidade: number; data_validade: string | null; numero_lote: string; produto_id: number }
 
 export type AlertaApi = {

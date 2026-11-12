@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDownWideNarrow, Car, ChevronRight, Plus, Search } from 'lucide-react'
+import { ArrowUpDown, Car, Check, ChevronRight, Plus, Search } from 'lucide-react'
 import { Pagination } from '../../components/Pagination'
+import { SearchableSelect } from '../../components/SearchableSelect'
+import { useDismiss } from '../../components/useDismiss'
 import { api, apiUrl } from '../../api/client'
 import { toast } from '../../utils/toast'
 import { KpiSkeleton, Skeleton } from '../../components/Skeleton'
-import type { Paginated, VeiculoApi } from '../../types'
+import type { OpcaoApi, Paginated, VeiculoApi } from '../../types'
 import {
   lotCapacity,
   staleThresholdDays,
@@ -22,18 +24,40 @@ const number = new Intl.NumberFormat('pt-BR')
 
 type Tab = 'Todos' | PatioStatus
 
-const tabs: Tab[] = ['Todos', 'Disponível', 'Reservado', 'Preparação']
+// Os vendidos só aparecem quando a aba "Vendidos" é escolhida (não entram em "Todos" nem nos indicadores).
+const tabs: Tab[] = ['Todos', 'Disponível', 'Reservado', 'Preparação', 'Vendido']
+const tabLabel: Record<Tab, string> = {
+  Todos: 'Todos',
+  Disponível: 'Disponível',
+  Reservado: 'Reservado',
+  Preparação: 'Preparação',
+  Vendido: 'Vendidos',
+}
+
+type SortKey = 'padrao' | 'az' | 'za' | 'dias-desc' | 'dias-asc' | 'km-desc' | 'km-asc'
+
+const sortOptions: { value: SortKey; label: string }[] = [
+  { value: 'padrao', label: 'Mais recentes (padrão)' },
+  { value: 'az', label: 'A–Z' },
+  { value: 'za', label: 'Z–A' },
+  { value: 'dias-desc', label: 'Mais tempo no pátio' },
+  { value: 'dias-asc', label: 'Menos tempo no pátio' },
+  { value: 'km-desc', label: 'Maior quilometragem' },
+  { value: 'km-asc', label: 'Menor quilometragem' },
+]
 
 const statusClass: Record<PatioStatus, string> = {
   Disponível: 'patio-status-disponivel',
   Reservado: 'patio-status-reservado',
   Preparação: 'patio-status-preparacao',
+  Vendido: 'patio-status-vendido',
 }
 
 // Formato que a tela usa (o mesmo dos dados fixos que existiam antes).
 type PatioVehicle = {
   id: number
   name: string
+  brandId: number
   status: PatioStatus
   vaga: string
   bodyType: string
@@ -47,11 +71,12 @@ type PatioVehicle = {
 }
 
 // Status que a API devolve -> texto que a tela mostra.
-// "vendido" e "manutencao" não estão aqui de propósito: não aparecem no pátio.
+// "manutencao" não está aqui de propósito: não aparece no pátio. "vendido" só aparece na aba própria.
 const statusFromApi: Record<string, PatioStatus | undefined> = {
   disponivel: 'Disponível',
   reservado: 'Reservado',
   preparacao: 'Preparação',
+  vendido: 'Vendido',
 }
 
 // Converte um veículo da API para o formato da tela.
@@ -67,6 +92,7 @@ function toPatioVehicle(v: VeiculoApi): PatioVehicle | null {
   return {
     id: v.id,
     name: `${v.marca} ${v.modelo}`,
+    brandId: v.marca_id,
     status,
     vaga: v.vaga,
     bodyType: v.carroceria,
@@ -91,7 +117,12 @@ export default function Patio() {
 
   const [tab, setTab] = useState<Tab>('Todos')
   const [query, setQuery] = useState('')
-  const [sortByDays, setSortByDays] = useState(false)
+  const [sort, setSort] = useState<SortKey>('padrao')
+  const [sortOpen, setSortOpen] = useState(false)
+  const sortRef = useRef<HTMLDivElement>(null)
+  useDismiss(sortRef, sortOpen, () => setSortOpen(false))
+  const [brandFilter, setBrandFilter] = useState('')
+  const [brands, setBrands] = useState<OpcaoApi[]>([])
   const [page, setPage] = useState(1)
 
   // Busca os veículos na API quando a página abre.
@@ -104,6 +135,13 @@ export default function Patio() {
       )
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
+  }, [])
+
+  // Marcas cadastradas no sistema (opções do filtro de marca).
+  useEffect(() => {
+    api<OpcaoApi[]>('/veiculos/opcoes/marcas')
+      .then(setBrands)
+      .catch(() => setBrands([]))
   }, [])
 
   // Aviso vindo de outra tela (ex.: depois de excluir um veículo na ficha).
@@ -128,37 +166,40 @@ export default function Patio() {
       )
   }
 
+  // Quem ainda está no pátio. Os vendidos ficam de fora dos indicadores e de "Todos".
+  const inLot = useMemo(() => patioVehicles.filter((v) => v.status !== 'Vendido'), [patioVehicles])
+
   const counts = useMemo(() => {
-    const base: Record<Tab, number> = { Todos: 0, Disponível: 0, Reservado: 0, Preparação: 0 }
+    const base: Record<Tab, number> = { Todos: 0, Disponível: 0, Reservado: 0, Preparação: 0, Vendido: 0 }
     for (const vehicle of patioVehicles) {
-      base.Todos++
+      if (vehicle.status !== 'Vendido') base.Todos++
       base[vehicle.status]++
     }
     return base
   }, [patioVehicles])
 
   const totalValue = useMemo(
-    () => patioVehicles.reduce((sum, vehicle) => sum + vehicle.price, 0),
-    [patioVehicles],
+    () => inLot.reduce((sum, vehicle) => sum + vehicle.price, 0),
+    [inLot],
   )
 
   const averageDays = useMemo(
     () =>
-      patioVehicles.length
-        ? Math.round(patioVehicles.reduce((sum, v) => sum + v.daysInLot, 0) / patioVehicles.length)
-        : 0,
-    [patioVehicles],
+      inLot.length ? Math.round(inLot.reduce((sum, v) => sum + v.daysInLot, 0) / inLot.length) : 0,
+    [inLot],
   )
 
   const staleCount = useMemo(
-    () => patioVehicles.filter((v) => v.daysInLot >= staleThresholdDays).length,
-    [patioVehicles],
+    () => inLot.filter((v) => v.daysInLot >= staleThresholdDays).length,
+    [inLot],
   )
 
-  const freeSpots = lotCapacity - patioVehicles.length
+  const freeSpots = lotCapacity - inLot.length
 
   const filtered = useMemo(() => {
-    let list = tab === 'Todos' ? patioVehicles : patioVehicles.filter((v) => v.status === tab)
+    let list = tab === 'Todos' ? inLot : patioVehicles.filter((v) => v.status === tab)
+
+    if (brandFilter) list = list.filter((v) => String(v.brandId) === brandFilter)
 
     const q = query.trim().toLowerCase()
     if (q) {
@@ -170,12 +211,19 @@ export default function Patio() {
       )
     }
 
-    if (sortByDays) {
-      list = [...list].sort((a, b) => b.daysInLot - a.daysInLot)
+    const ordenar: Partial<Record<SortKey, (a: PatioVehicle, b: PatioVehicle) => number>> = {
+      az: (a, b) => a.name.localeCompare(b.name, 'pt-BR'),
+      za: (a, b) => b.name.localeCompare(a.name, 'pt-BR'),
+      'dias-desc': (a, b) => b.daysInLot - a.daysInLot,
+      'dias-asc': (a, b) => a.daysInLot - b.daysInLot,
+      'km-desc': (a, b) => b.km - a.km,
+      'km-asc': (a, b) => a.km - b.km,
     }
+    const comparar = ordenar[sort]
+    if (comparar) list = [...list].sort(comparar)
 
     return list
-  }, [patioVehicles, tab, query, sortByDays])
+  }, [patioVehicles, inLot, tab, query, sort, brandFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -194,7 +242,7 @@ export default function Patio() {
             <h3>Veículos no pátio</h3>
             <span className="trend-badge trend-neutral">{freeSpots} vagas</span>
           </div>
-          <strong className="kpi-value">{loading ? <KpiSkeleton width={60} /> : patioVehicles.length}</strong>
+          <strong className="kpi-value">{loading ? <KpiSkeleton width={60} /> : inLot.length}</strong>
           <p className="kpi-helper">Capacidade de {lotCapacity} vagas</p>
         </div>
 
@@ -239,7 +287,7 @@ export default function Patio() {
               className={`patio-tab ${tab === t ? 'active' : ''}`}
               onClick={() => changeTab(t)}
             >
-              {t}
+              {tabLabel[t]}
               <span className="patio-tab-count">{counts[t]}</span>
             </button>
           ))}
@@ -257,14 +305,51 @@ export default function Patio() {
               placeholder="Modelo, placa ou vaga"
             />
           </label>
-          <button
-            type="button"
-            className={`btn btn-outline ${sortByDays ? 'active' : ''}`}
-            onClick={() => setSortByDays((v) => !v)}
-          >
-            <ArrowDownWideNarrow size={16} />
-            Mais tempo no pátio
-          </button>
+          <div className="patio-brand-filter">
+            <SearchableSelect
+              value={brandFilter}
+              onChange={(value) => {
+                setBrandFilter(value)
+                setPage(1)
+              }}
+              options={[{ value: '', label: 'Todas as marcas' }, ...brands.map((b) => ({ value: String(b.id), label: b.nome }))]}
+              placeholder="Todas as marcas"
+              disabled={brands.length === 0}
+            />
+          </div>
+          <div className="patio-sort" ref={sortRef}>
+            <button
+              type="button"
+              className={`btn btn-outline ${sort !== 'padrao' ? 'active' : ''}`}
+              aria-haspopup="menu"
+              aria-expanded={sortOpen}
+              onClick={() => setSortOpen((v) => !v)}
+            >
+              <ArrowUpDown size={16} />
+              {sort === 'padrao' ? 'Ordenar' : sortOptions.find((o) => o.value === sort)?.label}
+            </button>
+            {sortOpen && (
+              <div className="patio-sort-menu" role="menu">
+                {sortOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={sort === option.value}
+                    className={sort === option.value ? 'active' : ''}
+                    onClick={() => {
+                      setSort(option.value)
+                      setSortOpen(false)
+                      setPage(1)
+                    }}
+                  >
+                    {option.label}
+                    {sort === option.value && <Check size={14} aria-hidden="true" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             <Plus size={16} />
             Adicionar Veículo

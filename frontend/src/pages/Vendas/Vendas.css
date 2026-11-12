@@ -311,3 +311,54 @@
   background: var(--warning-bg);
   color: var(--text-h);
 }
+
+/* Cadastro rápido de cliente e comissão do vendedor (formulário de venda) */
+
+.vd-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vd-link-btn {
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vd-link-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.vd-link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vd-comissao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.vd-comissao strong {
+  color: var(--accent);
+}
+
+.vd-comissao-cell {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}

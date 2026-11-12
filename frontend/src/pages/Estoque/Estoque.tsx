@@ -1,15 +1,16 @@
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowUpDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import { KpiSkeleton, TableSkeleton } from "../../components/Skeleton";
 import { toast } from "../../utils/toast";
 import { Modal } from "../../components/Modal";
 import { Pagination } from "../../components/Pagination";
-import type { CategoriaProdutoApi, LoteApi, ProdutoApi } from "../../types";
+import type { CategoriaProdutoApi, LoteApi, ProdutoApi, ProdutoCriadoApi } from "../../types";
 import { currencyCents } from "../../utils/format";
 import "./Estoque.css";
-import { stockValue, toProducts } from "./estoqueData";
+import { stockValue, toProducts, type Product } from "./estoqueData";
 import { EstoqueFormModal, type StockEditor } from "./EstoqueFormModal";
+import { AjusteEstoqueModal } from "./AjusteEstoqueModal";
 
 export default function Estoque() {
   const [products, setProducts] = useState<ProdutoApi[]>([]);
@@ -30,6 +31,7 @@ export default function Estoque() {
     name: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adjusting, setAdjusting] = useState<Product | null>(null);
   const [deleteError, setDeleteError] = useState("");
   useEffect(() => {
     let active = true;
@@ -96,10 +98,27 @@ export default function Estoque() {
         ...prev.filter((p) => p.id !== item.id),
         item as LoteApi,
       ]);
+    // Produto criado já com lote inicial: o lote também entra na lista.
+    const loteInicial = kind === "produto" && !editor?.item ? (item as ProdutoCriadoApi).lote : null;
+    if (loteInicial) setLots((prev) => [...prev.filter((p) => p.id !== loteInicial.id), loteInicial]);
     setEditor(null);
-    toast.success(kind === "lote" && !editor?.item
-      ? "Lote cadastrado. A conta está em Financeiro → A pagar."
-      : "Registro salvo com sucesso.");
+    toast.success(
+      (kind === "lote" && !editor?.item) || loteInicial
+        ? "Lote cadastrado. A conta está em Financeiro → A pagar."
+        : "Registro salvo com sucesso.",
+    );
+  }
+  function adjusted(modo: "entrada" | "saida", changed: LoteApi[]) {
+    setLots((prev) => [
+      ...prev.filter((l) => !changed.some((c) => c.id === l.id)),
+      ...changed,
+    ]);
+    setAdjusting(null);
+    toast.success(
+      modo === "entrada"
+        ? "Entrada registrada. A conta está em Financeiro → A pagar."
+        : "Saída registrada com sucesso.",
+    );
   }
   function confirm(path: "produtos" | "lotes", id: number, name: string) {
     setDeleteError("");
@@ -275,6 +294,14 @@ export default function Estoque() {
                     <td>
                       <div className="row-actions">
                         <button
+                          className="btn btn-outline estoque-adjust"
+                          aria-label={`Ajustar estoque de ${p.nome}`}
+                          onClick={() => setAdjusting(p)}
+                        >
+                          <ArrowUpDown size={15} />
+                          Ajustar
+                        </button>
+                        <button
                           className="row-action row-action-edit"
                           aria-label={`Editar ${p.nome}`}
                           onClick={() =>
@@ -317,6 +344,13 @@ export default function Estoque() {
           pageSize={12}
           itemLabel="produtos"
           onPageChange={setPage}
+        />
+      )}
+      {adjusting && !editor && !deletion && (
+        <AjusteEstoqueModal
+          product={adjusting}
+          onClose={() => setAdjusting(null)}
+          onSaved={adjusted}
         />
       )}
       {editor && !deletion && (
